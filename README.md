@@ -1,2 +1,12 @@
 # AI-ppeal
-CS224G Final Project
+CS224G Project
+
+## Features
+TODO
+
+## Setup
+TODO
+
+## Usage
+TODO
+
