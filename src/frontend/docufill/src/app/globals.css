@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for chat messages */
+.chat-message-container {
+  max-width: 70%;
+}
+
+.message-user {
+  margin-left: auto;
+}
+
+.message-bot {
+  margin-right: auto;
+}
