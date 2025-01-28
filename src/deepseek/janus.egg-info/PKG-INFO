@@ -1,0 +1,39 @@
+Metadata-Version: 2.2
+Name: janus
+Version: 1.0.0
+Summary: Janus
+Author: DeepSeek-AI
+Project-URL: homepage, https://github.com/deepseek-ai/Janus
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=2.0.1
+Requires-Dist: transformers>=4.38.2
+Requires-Dist: timm>=0.9.16
+Requires-Dist: accelerate
+Requires-Dist: sentencepiece
+Requires-Dist: attrdict
+Requires-Dist: einops
+Provides-Extra: gradio
+Requires-Dist: gradio==3.48.0; extra == "gradio"
+Requires-Dist: gradio-client==0.6.1; extra == "gradio"
+Requires-Dist: mdtex2html==1.3.0; extra == "gradio"
+Requires-Dist: pypinyin==0.50.0; extra == "gradio"
+Requires-Dist: tiktoken==0.5.2; extra == "gradio"
+Requires-Dist: tqdm==4.64.0; extra == "gradio"
+Requires-Dist: colorama==0.4.5; extra == "gradio"
+Requires-Dist: Pygments==2.12.0; extra == "gradio"
+Requires-Dist: markdown==3.4.1; extra == "gradio"
+Requires-Dist: SentencePiece==0.1.96; extra == "gradio"
+Provides-Extra: lint
+Requires-Dist: isort; extra == "lint"
+Requires-Dist: black[jupyter]>=22.6.0; extra == "lint"
+Requires-Dist: pylint[spelling]>=2.15.0; extra == "lint"
+Requires-Dist: flake8; extra == "lint"
+Requires-Dist: flake8-bugbear; extra == "lint"
+Requires-Dist: flake8-comprehensions; extra == "lint"
+Requires-Dist: flake8-docstrings; extra == "lint"
+Requires-Dist: flake8-pyi; extra == "lint"
+Requires-Dist: flake8-simplify; extra == "lint"
+Requires-Dist: ruff; extra == "lint"
+Requires-Dist: pyenchant; extra == "lint"
+Requires-Dist: pre-commit; extra == "lint"
