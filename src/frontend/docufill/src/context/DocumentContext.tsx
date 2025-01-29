@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// Types for our documents
+// Types
 export interface Document {
   id: number;
   name: string;
@@ -15,10 +15,10 @@ interface DocumentContextType {
   removeDocument: (id: number) => void;
 }
 
-// Create the context and export it
+// Create and export the context
 export const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
 
-// Create the provider component
+// Provider component
 export function DocumentProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<Document[]>([
     { id: 1, name: '2023_W2.pdf', type: 'Tax Document' },
@@ -53,4 +53,13 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
       {children}
     </DocumentContext.Provider>
   );
+}
+
+// Export the hook
+export function useDocuments() {
+  const context = useContext(DocumentContext);
+  if (context === undefined) {
+    throw new Error('useDocuments must be used within a DocumentProvider');
+  }
+  return context;
 }

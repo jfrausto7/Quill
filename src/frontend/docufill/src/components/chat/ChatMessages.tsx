@@ -2,17 +2,19 @@
 
 import React, { useEffect, useRef } from 'react';
 import { MessageType } from './types';
+import LoadingBubble from './LoadingBubble';
 
 interface ChatMessagesProps {
   messages: MessageType[];
+  isLoading?: boolean;
 }
 
-const ChatMessages = ({ messages }: ChatMessagesProps) => {
+const ChatMessages = ({ messages, isLoading = false }: ChatMessagesProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -33,6 +35,7 @@ const ChatMessages = ({ messages }: ChatMessagesProps) => {
             </div>
           </div>
         ))}
+        {isLoading && <LoadingBubble />}
         <div ref={messagesEndRef} />
       </div>
     </div>
