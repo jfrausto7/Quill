@@ -2,7 +2,7 @@ import sys
 import ollama
 
 # System prompt defining the assistant's persona and behavior
-SYSTEM_PROMPT = """You are DocuFill, a friendly and efficient document assistant. 
+SYSTEM_PROMPT = """You are Quill, a friendly and efficient document assistant. 
 
 IMPORTANT RULES:
 1. Keep responses SHORT and FOCUSED - no more than 2-3 sentences
