@@ -29,3 +29,10 @@ We utilized the open-source project WEB-UI (MIT License) to build a proof of con
 - Gemini 2.0 Flash-Exp
 - GPT-4o
 Among these, GPT-4o demonstrated the best performance in accuracy and efficiency.
+
+## Contributions by team member
+- Daniel:
+- Dante:
+- Jacob: Implemented UI and frontend/backend integration.
+- Ismael:
+- Neil:
