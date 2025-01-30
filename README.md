@@ -17,7 +17,7 @@ TODO
 Run the frontend with `python src/main.py` and navigate to http://localhost:3000/ 
 
 ## OpenAI Assistant API
-A side experiment named 'openai_assistant' leverages the OpenAI Assistant API to automate document processing to build a proof of concept. The experiment can:
+A side experiment named 'openai_assistant' leverages the OpenAI Assistant API to automate document processing to build a proof of concept. To implement the notebook, an API key needs to be inserted at the first cell. The experiment can:
 - Visually identify blanks in forms
 - Auto-fill forms and generate PDF outputs
 - Store and manage user information in JSON format
