@@ -32,7 +32,7 @@ Among these, GPT-4o demonstrated the best performance in accuracy and efficiency
 
 ## Contributions by team member
 - Daniel: Implemented OpenAI Assistant API, experimented with WEB-UI, explored locally running DeepSeek R1 & LLaVA, and prepared slides
-- Dante:
+- Dante: Implemented backend chat function using Ollama API (deepseek model), experimented with locally running Deepseek r1 & LLaVa, worked on slides.
 - Jacob: Implemented UI and frontend/backend integration.
 - Ismael: Research on multimodal agents, explored Janus capabilities locally on the web using Gradio, fine tuning attempt on Janus for form text extraction.
 - Neil: Interview attorney/owners re tax appeal process; research appeal process; project management; mentor on slides and presentation  
