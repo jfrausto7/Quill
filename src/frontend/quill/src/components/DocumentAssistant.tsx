@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MessageSquare } from 'lucide-react';
 import Header from './layout/Header';
 import UploadSection from './documents/UploadSection';
@@ -9,6 +9,7 @@ import ChatView from './chat/ChatView';
 
 const DocumentAssistant = () => {
   const [view, setView] = useState<'landing' | 'chat'>('landing');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleStartChat = () => {
     setView('chat');
@@ -18,9 +19,13 @@ const DocumentAssistant = () => {
     setView('landing');
   };
 
+  // Function to trigger document list refresh
+  const refreshDocuments = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   const LandingView = () => (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Header section */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">Document Assistant</h1>
         <p className="text-lg text-gray-600 dark:text-gray-300">
@@ -28,9 +33,8 @@ const DocumentAssistant = () => {
         </p>
       </div>
 
-      {/* Main actions grid */}
       <div className="grid md:grid-cols-2 gap-6 mb-12">
-        <UploadSection />
+        <UploadSection onUploadComplete={refreshDocuments} />
         
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Start Filling Forms</h2>
@@ -47,7 +51,7 @@ const DocumentAssistant = () => {
         </div>
       </div>
 
-      <DocumentList />
+      <DocumentList key={refreshTrigger} />
     </div>
   );
 

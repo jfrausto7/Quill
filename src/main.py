@@ -1,9 +1,47 @@
 import subprocess
 import os
+import time
+from pathlib import Path
+
+def start_mongodb():
+    # Create data directory if it doesn't exist
+    data_dir = Path.home() / '.quill' / 'mongodb'
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f"Starting MongoDB with data directory: {data_dir}")
+    
+    # Start MongoDB as a background process
+    if os.name == 'nt':  # Windows
+        mongo_cmd = "mongod"
+    else:  # Mac/Linux
+        mongo_cmd = "mongod"
+    
+    try:
+        mongo_process = subprocess.Popen(
+            f"{mongo_cmd} --dbpath={data_dir}",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        # Wait a bit to ensure MongoDB has started
+        time.sleep(3)
+        
+        # Check if process is still running
+        if mongo_process.poll() is None:
+            print("MongoDB server started successfully")
+            return mongo_process
+        else:
+            stdout, stderr = mongo_process.communicate()
+            print(f"MongoDB failed to start: {stderr.decode()}")
+            return None
+    except Exception as e:
+        print(f"Error starting MongoDB: {e}")
+        return None
 
 def start_frontend():
     # Get the absolute path to npm
-    npm_cmd = 'npm.cmd' if os.name == 'nt' else 'npm'  # Use npm.cmd for Windows
+    npm_cmd = 'npm.cmd' if os.name == 'nt' else 'npm'
     
     # Get frontend directory path
     current_dir = os.getcwd()
@@ -30,4 +68,20 @@ def start_frontend():
         print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
-    start_frontend()
+    # Start MongoDB first
+    mongo_process = start_mongodb()
+    
+    if mongo_process:
+        try:
+            # Start the frontend
+            start_frontend()
+        finally:
+            # Cleanup: Stop MongoDB when the script exits
+            print("Shutting down MongoDB...")
+            if os.name == 'nt':  # Windows
+                subprocess.run(['taskkill', '/F', '/PID', str(mongo_process.pid)])
+            else:  # Mac/Linux
+                mongo_process.terminate()
+                mongo_process.wait()
+    else:
+        print("Failed to start MongoDB. Please make sure MongoDB is installed correctly.")
