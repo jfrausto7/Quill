@@ -10,7 +10,13 @@ export function useDocumentsByType(type: string) {
   return documents.filter(doc => doc.type === type);
 }
 
-export function useDocumentById(id: number) {
+export function useDocumentById(id: string) {  // Changed from number to string
   const { documents } = useDocuments();
-  return documents.find(doc => doc.id === id);
+  return documents.find(doc => doc._id === id);  // Changed from id to _id
+}
+
+// New helper hook to force refresh
+export function useDocumentRefresh() {
+  const { refreshDocuments } = useDocuments();
+  return refreshDocuments;
 }

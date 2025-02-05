@@ -1,45 +1,73 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Types
 export interface Document {
-  id: number;
+  _id: string;  // Changed from id to _id to match MongoDB
   name: string;
   type: string;
+  metadata?: {
+    size: number;
+    type: string;
+    lastModified: string;
+  };
 }
 
 interface DocumentContextType {
   documents: Document[];
-  addDocument: (document: Omit<Document, 'id'>) => void;
-  removeDocument: (id: number) => void;
+  addDocument: (document: Omit<Document, '_id'>) => void;
+  removeDocument: (id: string) => void;
+  refreshDocuments: () => Promise<void>;
 }
 
-// Create and export the context
 export const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
 
-// Provider component
-export function DocumentProvider({ children }: { children: ReactNode }) {
-  const [documents, setDocuments] = useState<Document[]>([
-    { id: 1, name: '2023_W2.pdf', type: 'Tax Document' },
-    { id: 2, name: 'Lease_Agreement.pdf', type: 'Housing' },
-    { id: 3, name: 'Medical_Records.pdf', type: 'Healthcare' }
-  ]);
+export function DocumentProvider({ children }: { children: React.ReactNode }) {
+  const [documents, setDocuments] = useState<Document[]>([]);
 
-  const addDocument = (document: Omit<Document, 'id'>) => {
-    setDocuments(prevDocuments => [
-      ...prevDocuments,
-      {
-        id: prevDocuments.length + 1,
-        ...document
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch('/api/documents');
+      if (!response.ok) {
+        throw new Error('Failed to fetch documents');
       }
-    ]);
+      const data = await response.json();
+      setDocuments(data.documents);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
   };
 
-  const removeDocument = (id: number) => {
-    setDocuments(prevDocuments => 
-      prevDocuments.filter(doc => doc.id !== id)
-    );
+  // Initial fetch
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const addDocument = async (document: Omit<Document, '_id'>) => {
+    try {
+      // Note: actual document upload is handled elsewhere
+      // This is just to refresh the list after upload
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error adding document:', error);
+    }
+  };
+
+  const removeDocument = async (id: string) => {
+    try {
+      const response = await fetch(`/api/documents?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete document');
+      }
+
+      // Refresh documents list after deletion
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error removing document:', error);
+    }
   };
 
   return (
@@ -47,7 +75,8 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
       value={{
         documents,
         addDocument,
-        removeDocument
+        removeDocument,
+        refreshDocuments: fetchDocuments
       }}
     >
       {children}
@@ -55,7 +84,6 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Export the hook
 export function useDocuments() {
   const context = useContext(DocumentContext);
   if (context === undefined) {

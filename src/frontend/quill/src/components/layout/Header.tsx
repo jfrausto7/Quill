@@ -21,15 +21,6 @@ const Header = ({ onLogoClick }: HeaderProps) => {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quill</h1>
           </button>
           <nav className="flex items-center space-x-4">
-            {/* <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              Documents
-            </button> */}
-            {/* <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              History
-            </button> */}
-            {/* <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
-              Upload
-            </button> */}
             <ThemeToggle />
           </nav>
         </div>

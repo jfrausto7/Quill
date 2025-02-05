@@ -2,14 +2,16 @@
 
 import React, { useRef, useState } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
+import { useDocuments } from '@/hooks/useDocuments';
 
 interface UploadSectionProps {
-  onUploadComplete?: () => void;  // Add this prop
+  onUploadComplete: () => void;
 }
 
 const UploadSection = ({ onUploadComplete }: UploadSectionProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addDocument } = useDocuments(); // Removed refreshDocuments from context
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -18,7 +20,6 @@ const UploadSection = ({ onUploadComplete }: UploadSectionProps) => {
     try {
       setIsUploading(true);
       
-      // Create FormData and send to API
       const formData = new FormData();
       formData.append('file', file);
       
@@ -36,9 +37,9 @@ const UploadSection = ({ onUploadComplete }: UploadSectionProps) => {
         fileInputRef.current.value = '';
       }
 
-      // Notify parent component to refresh document list
-      onUploadComplete?.();
-
+      // Call the prop instead of using context
+      await onUploadComplete();
+      
     } catch (error) {
       console.error('Upload error:', error);
       alert('Failed to upload document');

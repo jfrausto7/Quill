@@ -51,15 +51,35 @@ export class MongoDocumentService {
   private isConnected: boolean = false;
 
   constructor() {
-    this.client = new MongoClient('mongodb://localhost:27017');
+    this.client = new MongoClient(process.env.MONGODB_URI || 'mongodb://localhost:27017', {
+      writeConcern: { w: 1, j: true },  // Ensure writes are journaled
+      readConcernLevel: 'majority',      // Read from majority of nodes
+      serverSelectionTimeoutMS: 5000,    // 5 seconds timeout for server selection
+      socketTimeoutMS: 45000,            // 45 seconds timeout for socket operations
+    });
     this.encryptionKey = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'your-secure-key', 'salt', 32);
   }
 
   async connect() {
     if (!this.isConnected) {
-      await this.client.connect();
-      this.isConnected = true;
-      console.log('Connected to MongoDB');
+      try {
+        await this.client.connect();
+        await this.client.db().admin().ping();
+        this.isConnected = true;
+        console.log('Connected to MongoDB');
+      } catch (error) {
+        this.isConnected = false;
+        console.error('MongoDB connection failed:', error);
+        throw error;
+      }
+    }
+  }
+
+  async disconnect() {
+    if (this.isConnected) {
+      await this.client.close(true);
+      this.isConnected = false;
+      console.log('Disconnected from MongoDB');
     }
   }
 
@@ -77,7 +97,6 @@ export class MongoDocumentService {
   }
 
   private decrypt(encrypted: Buffer | Binary, iv: Buffer | Binary, authTag: Buffer | Binary): Buffer {
-    // Convert MongoDB Binary types to Buffers if needed
     const encryptedBuffer = Buffer.isBuffer(encrypted) ? encrypted : Buffer.from(encrypted.buffer);
     const ivBuffer = Buffer.isBuffer(iv) ? iv : Buffer.from(iv.buffer);
     const authTagBuffer = Buffer.isBuffer(authTag) ? authTag : Buffer.from(authTag.buffer);
@@ -103,8 +122,8 @@ export class MongoDocumentService {
         createdAt: new Date(),
         lastModified: new Date()
       },
-      extractedInfo: extractedInfo || {},  // Store extracted information
-      extractionHistory: [{  // Keep track of information updates
+      extractedInfo: extractedInfo || {},
+      extractionHistory: [{
         timestamp: new Date(),
         fields: Object.keys(extractedInfo || {}),
         source: 'initial_upload'
@@ -114,7 +133,10 @@ export class MongoDocumentService {
     const result = await this.client
       .db('quill')
       .collection('documents')
-      .insertOne(doc);
+      .insertOne(doc, { writeConcern: { w: 'majority' } });
+
+    // Add a small delay to ensure write propagation
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     return { 
       _id: result.insertedId.toString(),
@@ -124,19 +146,25 @@ export class MongoDocumentService {
     };
   }
 
-  async getDocument(id: string) {
+  async getDocument(id: string, retryCount = 0) {
     await this.connect();
 
-    const doc = await this.client
-      .db('quill')
-      .collection('documents')
-      .findOne({ _id: new ObjectId(id) });
-
-    if (!doc) {
-      throw new Error('Document not found');
-    }
-
     try {
+      const doc = await this.client
+        .db('quill')
+        .collection('documents')
+        .findOne({ _id: new ObjectId(id) });
+
+      if (!doc && retryCount < 3) {
+        // If document not found, wait a bit and retry
+        await new Promise(resolve => setTimeout(resolve, 100 * (retryCount + 1)));
+        return this.getDocument(id, retryCount + 1);
+      }
+
+      if (!doc) {
+        throw new Error('Document not found');
+      }
+
       const decrypted = this.decrypt(doc.content, doc.iv, doc.authTag);
 
       return {
@@ -147,14 +175,10 @@ export class MongoDocumentService {
         extractedInfo: doc.extractedInfo
       };
     } catch (error) {
-      console.error('Decryption error:', {
-        hasContent: !!doc.content,
-        hasIV: !!doc.iv,
-        hasAuthTag: !!doc.authTag,
-        contentType: doc.content?.constructor.name,
-        ivType: doc.iv?.constructor.name,
-        authTagType: doc.authTag?.constructor.name
-      });
+      if (error.message === 'Document not found' && retryCount < 3) {
+        await new Promise(resolve => setTimeout(resolve, 100 * (retryCount + 1)));
+        return this.getDocument(id, retryCount + 1);
+      }
       throw error;
     }
   }
@@ -165,7 +189,7 @@ export class MongoDocumentService {
     const result = await this.client
       .db('quill')
       .collection('documents')
-      .deleteOne({ _id: new ObjectId(id) });
+      .deleteOne({ _id: new ObjectId(id) }, { writeConcern: { w: 'majority' } });
 
     if (result.deletedCount === 0) {
       throw new Error('Document not found');
@@ -180,7 +204,9 @@ export class MongoDocumentService {
     const documents = await this.client
       .db('quill')
       .collection('documents')
-      .find({}, { projection: { content: 0, iv: 0, authTag: 0 } })
+      .find({}, { 
+        projection: { content: 0, iv: 0, authTag: 0 }
+      })
       .toArray();
 
     return documents.map(doc => ({
@@ -209,7 +235,8 @@ export class MongoDocumentService {
               source: source
             }
           }
-        }
+        },
+        { writeConcern: { w: 'majority' } }
       );
 
     if (result.modifiedCount === 0) {
@@ -275,7 +302,6 @@ export class MongoDocumentService {
       })
       .toArray();
 
-    // Combine and organize information from all documents
     return documents.reduce((summary, doc) => {
       const info = doc.extractedInfo;
       if (info) {

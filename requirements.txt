@@ -2,3 +2,5 @@ ollama
 torch
 transformers
 openai
+PyPDF2
+mammoth
