@@ -1,4 +1,5 @@
 ollama
-torch
-transformers
-openai
+# torch
+# transformers
+# openai
+spire.pdf

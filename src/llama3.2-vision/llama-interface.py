@@ -1,5 +1,7 @@
 import sys
 import ollama
+from spire.pdf.common import *
+from spire.pdf import *
 
 # System prompt defining the assistant's persona and behavior
 SYSTEM_PROMPT = """You are Quill, a friendly and efficient document assistant. 
@@ -20,32 +22,38 @@ Example bad response:
 RESPOND TO THE USER'S MESSAGE:
 """
 
-def clean_response(text):
-    # Remove <userStyle>Normal</userStyle> tag
-    text = text.replace('<userStyle>Normal</userStyle>', '')
-    
-    # Find all content after </think> tags
-    think_splits = text.split('</think>')
-    if len(think_splits) > 1:
-        # Return everything after the last </think> tag
-        return think_splits[-1].strip()
-    
-    # Remove quotation marks at the beginning and end
-    text = text.strip('"')  # This removes both single and double quotes
-    
-    return text.strip()
+def PDF2IMG(doc):
+    # Create a PdfDocument object
+    pdf = PdfDocument()
+    # Load a PDF document
+    pdf.LoadFromFile(doc)
+    imgs = []
+
+    # Loop through the pages in the document
+    for i in range(pdf.Pages.Count):
+        # Save each page as a PNG image
+        fileName = "tmp/img-{0:d}.png".format(i)
+        imgs.append(fileName)
+        with pdf.SaveAsImage(i) as imageS:
+            imageS.Save(fileName)
+
+    # Close the PdfDocument object
+    pdf.Close()
+    return imgs
 
 def send_query(message):
+    # imgs = [PDF2IMG(doc) for doc in docs]
     response = ollama.chat(
-        'deepseek-r1:8b',
+        'llama3.2-vision:11b',
         messages=[
             {
                 'role': 'system',
-                'content': ""
+                'content': SYSTEM_PROMPT
             },
             {
                 'role': 'user',
-                'content': SYSTEM_PROMPT + message,
+                'content': message,
+                # 'images': imgs
             },
         ],
         options={
@@ -57,8 +65,7 @@ def send_query(message):
     )
     
     # Clean and print the response
-    cleaned_response = clean_response(response['message']['content'])
-    print(cleaned_response)
+    print(response['message']['content'])
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

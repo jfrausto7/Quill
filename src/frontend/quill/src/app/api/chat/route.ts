@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     console.log('API Route: Received message:', message);
 
     const { stdout, stderr } = await runPythonScript(
-      '../../deepseek/r1-interface.py',
+      '../../llama3.2-vision/llama-interface.py',
       message
     );
 
