@@ -31,7 +31,7 @@ def PDF2IMG(doc):
     # Loop through the pages in the document
     for i in range(pdf.Pages.Count):
         # Save each page as a PNG image
-        fileName = "tmp/img-{0:d}.png".format(i)
+        fileName = "./tmp/img-{0:d}.png".format(i)
         imgs.append(fileName)
         with pdf.SaveAsImage(i) as imageS:
             imageS.Save(fileName)
@@ -42,25 +42,17 @@ def PDF2IMG(doc):
 
 def extract_fields(doc):
     imgs = PDF2IMG(doc)
+    print(imgs)
     response = ollama.chat(
-        'llama3.2-vision:11b',
-        messages=[
-            {
-                'role': 'system',
-                'content': SYSTEM_PROMPT
-            },
-            {
-                'role': 'user',
-                'content': USER_PROMPT,
-                'images': imgs
-            },
-        ],
-        options={
-            'temperature': 0.7,
-            'top_k': 50,
-            'top_p': 0.9,
-            'max_tokens': 100
-        }
+    model='llama3.2-vision:11b',
+    messages=[{
+        'role': 'system',
+        'content': SYSTEM_PROMPT,
+    }, {
+        'role': 'user',
+        'content': USER_PROMPT,
+        'images': imgs
+            }]
     )
     
     # Print response
@@ -69,5 +61,4 @@ def extract_fields(doc):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         doc = sys.argv[1]
-        print(doc)
         extract_fields(doc)
