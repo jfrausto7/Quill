@@ -46,4 +46,4 @@ We utilized the open-source project WEB-UI (MIT License) to build a proof of con
 - Dante: Implemented backend chat function using Ollama API (deepseek model), experimented with locally running Deepseek r1 & LLaVa, worked on slides.
 - Jacob: Implemented UI and frontend/backend integration.
 - Ismael: Research on multimodal agents, explored Janus capabilities locally on the web using Gradio, fine tuning attempt on Janus for form text extraction.
-- Neil: Interview attorney/owners re tax appeal process; research appeal process; project management; mentor on slides and presentation
+- Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
