@@ -6,9 +6,14 @@ import Header from './layout/Header';
 import UploadSection from './documents/UploadSection';
 import DocumentList from './documents/DocumentList';
 import ChatView from './chat/ChatView';
+import { MessageType } from './chat/types';
 
 const DocumentAssistant = () => {
   const [view, setView] = useState<'landing' | 'chat'>('landing');
+  const [messages, setMessages] = useState<MessageType[]>([{
+    type: 'bot',
+    content: "Hello! I can help you fill out forms using information from your stored documents. What form would you like to work on today?"
+  }]);
 
   const handleStartChat = () => {
     setView('chat');
@@ -18,9 +23,12 @@ const DocumentAssistant = () => {
     setView('landing');
   };
 
+  const handleUpdateMessages = (newMessages: MessageType[]) => {
+    setMessages(newMessages);
+  };
+
   const LandingView = () => (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Header section */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">Document Assistant</h1>
         <p className="text-lg text-gray-600 dark:text-gray-300">
@@ -28,7 +36,6 @@ const DocumentAssistant = () => {
         </p>
       </div>
 
-      {/* Main actions grid */}
       <div className="grid md:grid-cols-2 gap-6 mb-12">
         <UploadSection />
         
@@ -59,10 +66,8 @@ const DocumentAssistant = () => {
       ) : (
         <ChatView 
           onBack={handleNavigateHome}
-          initialMessages={[{
-            type: 'bot',
-            content: "Hello! I can help you fill out forms using information from your stored documents. What form would you like to work on today?"
-          }]}
+          messages={messages}
+          onMessagesUpdate={handleUpdateMessages}
         />
       )}
     </div>
