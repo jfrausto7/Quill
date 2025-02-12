@@ -3,6 +3,7 @@
 import React, { createContext, useContext } from 'react';
 import { ChatService } from '@/services/chat/ChatService';
 import { R1ChatService } from '@/services/chat/R1ChatService';
+import { RAGChatService } from '@/services/chat/RAGChatService';
 
 interface ChatContextType {
   chatService: ChatService;
@@ -10,8 +11,8 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Initialize R1ChatService as the default service
-const defaultChatService = new R1ChatService();
+// You can switch between services based on your needs
+const defaultChatService = new RAGChatService(); // or R1ChatService() if you want that as default
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   return (

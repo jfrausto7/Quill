@@ -1,5 +1,15 @@
 ollama
-# torch
-# transformers
-# openai
 spire.pdf
+langchain-community
+langchain-text-splitters
+langchain-ollama
+langchain-core
+chromadb
+nltk
+unstructured
+unstructured-inference
+unstructured.pytesseract
+pytesseract
+pdfminer.six
+pi_heif
+pdf2image

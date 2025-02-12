@@ -9,11 +9,11 @@ import { MessageType } from './types';
 
 interface ChatViewProps {
   onBack: () => void;
-  initialMessages?: MessageType[];
+  messages: MessageType[];
+  onMessagesUpdate: (messages: MessageType[]) => void;
 }
 
-const ChatView = ({ onBack, initialMessages = [] }: ChatViewProps) => {
-  const [messages, setMessages] = useState<MessageType[]>(initialMessages);
+const ChatView = ({ onBack, messages, onMessagesUpdate }: ChatViewProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { documents } = useDocuments();
   const { chatService } = useChatService();
@@ -26,7 +26,7 @@ const ChatView = ({ onBack, initialMessages = [] }: ChatViewProps) => {
         ...messages,
         { type: 'user', content: messageText }
       ];
-      setMessages(updatedMessages);
+      onMessagesUpdate(updatedMessages);
 
       // Get response from chatbot
       const response = await chatService.generateResponse(messageText, {
@@ -35,13 +35,13 @@ const ChatView = ({ onBack, initialMessages = [] }: ChatViewProps) => {
       });
 
       // Add bot response
-      setMessages([
+      onMessagesUpdate([
         ...updatedMessages,
         { type: 'bot', content: response }
       ]);
     } catch (error) {
       console.error('Error in chat:', error);
-      setMessages([
+      onMessagesUpdate([
         ...messages,
         { type: 'user', content: messageText },
         { type: 'bot', content: 'Sorry, I encountered an error processing your request.' }

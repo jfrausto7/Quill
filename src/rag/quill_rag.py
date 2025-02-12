@@ -17,11 +17,9 @@ import ollama
 logging.basicConfig(level=logging.INFO)
 
 # Constants
-DOC_PATH1 = "sample_filled.pdf"
-DOC_PATH2 = "sample_form.pdf" # sample_filled.pdf for mode ingest and sample_form.pdf for mode query
 MODEL_NAME = "llama3.2-vision:11b"
 EMBEDDING_MODEL = "nomic-embed-text"
-USER_INFO_JSON = "user_info.json"
+USER_INFO_JSON = "../../uploads/user_info.json"
 
 def ingest_pdf(doc_path):
     """Load PDF documents."""
@@ -57,7 +55,11 @@ def extract_key_value_info(chunks, llm):
     result = llm.invoke(input=prompt)
     logging.info("Key-value information extracted from document.")
     try:
-        info = json.loads(result.content.strip())
+        # Remove code block markers if they exist
+        content = result.content.strip()
+        if content.startswith('```') and content.endswith('```'):
+            content = content[3:-3].strip()
+        info = json.loads(content)
     except Exception as e:
         logging.error("Failed to parse JSON output from LLM: " + str(e))
         info = {}
@@ -174,6 +176,40 @@ def create_chain(retriever, llm, user_info=""):
     logging.info("Chain created successfully.")
     return chain
 
+def answer_query(llm, question, user_info="", chat_history=""):
+    """
+    Answer a query using just the stored user information.
+    """
+    prompt = f"""Based on the following user information and chat history, answer the question.
+    
+    User Information:
+    {user_info}
+
+    {chat_history}
+    
+    Question: {question}
+    
+    Please provide a direct and helpful response."""
+
+    response = llm.invoke(input=prompt)
+    return response.content.strip()
+
+def format_chat_history(chat_history_path):
+    """Format chat history for the prompt."""
+    if not chat_history_path:
+        return ""
+    try:
+        with open(chat_history_path, 'r') as f:
+            chat_history = json.load(f)
+        formatted = "\nPrevious conversation:\n"
+        for msg in chat_history:
+            role = "User" if msg['type'] == 'user' else "Assistant"
+            formatted += f"{role}: {msg['content']}\n"
+        return formatted
+    except Exception as e:
+        logging.error(f"Error reading chat history: {e}")
+        return ""
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run in one of two modes: ingest (update user_info.json) or query (answer query using stored user info)."
@@ -184,11 +220,28 @@ def main():
         required=True,
         help="Mode: 'ingest' to update user_info.json from the document, 'query' to answer a question using stored user info.",
     )
+    parser.add_argument(
+        "--document",
+        type=str,
+        required=True,
+        help="Path to the document file"
+    )
+    parser.add_argument(
+        "--question",
+        type=str,
+        help="Question for query mode"
+    )
+    parser.add_argument(
+        "--chat-history",
+        type=str,
+        help="Path to chat history JSON file"
+    )
+
     args = parser.parse_args()
     
     if args.mode == "ingest":
-        # Mode 1: Ingest data from DOC_PATH and update (or create) user_info.json.
-        data = ingest_pdf(DOC_PATH1)
+        # Process document
+        data = ingest_pdf(args.document)
         if data is None:
             return
         chunks = split_documents(data)
@@ -196,42 +249,32 @@ def main():
         key_value_info = extract_key_value_info(chunks, llm)
         logging.info(f"Extracted key-value pairs: {key_value_info}")
         update_user_info_json(key_value_info)
-        print("User info JSON has been updated.")
+        print(json.dumps({
+            "status": "success",
+            "message": "Document processed successfully"
+        }))
     
     elif args.mode == "query":
-        # Mode 2: Use user_info.json as context to answer a query, without updating it.
+        if not args.question:
+            print(json.dumps({"error": "Question is required for query mode"}))
+            return
+        
+        # Load stored user info
         user_info_str = load_user_info()
         if not user_info_str:
-            logging.error("User info JSON is empty or missing. Run in 'ingest' mode first.")
+            print(json.dumps({"error": "No user information found"}))
             return
 
-        # Optionally, still load the document and create a vector database for retrieval.
-        data = ingest_pdf(DOC_PATH2)
-        if data is None:
-            return
-        chunks = split_documents(data)
-        
-        # Determine a collection name using stored info (if available) or a default.
-        try:
-            user_info_dict = json.loads(user_info_str)
-        except Exception as e:
-            logging.error(f"Error parsing user_info.json: {e}")
-            return
-        if "name" in user_info_dict and user_info_dict["name"]:
-            collection_name = sanitize_collection_name(user_info_dict["name"])
-        else:
-            collection_name = "vector_store_default"
-        
-        vector_db = create_vector_db(chunks, collection_name)
+        # Get chat history if provided
+        chat_history = ""
+        if args.chat_history:
+            chat_history = format_chat_history(args.chat_history)
+
+        # Initialize LLM and get response
         llm = ChatOllama(model=MODEL_NAME)
-        retriever = create_retriever(vector_db, llm)
-        chain = create_chain(retriever, llm, user_info=user_info_str)
+        response = answer_query(llm, args.question, user_info_str, chat_history)
         
-        # Accept a user query from standard input.
-        question = input("Enter your question: ")
-        res = chain.invoke(input=question)
-        print("Response:")
-        print(res)
+        print(json.dumps({"response": response}))
 
 if __name__ == "__main__":
     main()
