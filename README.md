@@ -50,7 +50,7 @@ Sprint #1:
 - Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
 
 Sprint #2:
-- Daniel: 
+- Daniel: Developed a multi-query RAG system with key-value extraction for JSON generation and JSON-based form filling.
 - Dante: Wrote doc_upload.py and modified llama3.2-vision_interface.py, added PDF2PNG functionality, create detailed diagrams of workflow, worked on slides.
 - Jacob: Experimented w/ MongoDB for document management/encryption. Integrated RAG system into chat interface.
 - Ismael: 
