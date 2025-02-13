@@ -52,6 +52,6 @@ Sprint #1:
 Sprint #2:
 - Daniel: 
 - Dante: Wrote doc_upload.py and modified llama3.2-vision_interface.py, added PDF2PNG functionality, create detailed diagrams of workflow, worked on slides.
-- Jacob: 
+- Jacob: Experimented w/ MongoDB for document management/encryption. Integrated RAG system into chat interface.
 - Ismael: 
 - Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
