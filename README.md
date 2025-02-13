@@ -42,8 +42,16 @@ We utilized the open-source project WEB-UI (MIT License) to build a proof of con
 
 ## Contributions by team member
 
+Sprint #1:
 - Daniel: Implemented OpenAI Assistant API, experimented with WEB-UI, explored locally running DeepSeek R1 & LLaVA, and prepared slides
 - Dante: Implemented backend chat function using Ollama API (deepseek model), experimented with locally running Deepseek r1 & LLaVa, worked on slides.
 - Jacob: Implemented UI and frontend/backend integration.
 - Ismael: Research on multimodal agents, explored Janus capabilities locally on the web using Gradio, fine tuning attempt on Janus for form text extraction.
+- Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
+
+Sprint #2:
+- Daniel: 
+- Dante: Wrote doc_upload.py and modified llama3.2-vision_interface.py, added PDF2PNG functionality, create detailed diagrams of workflow, worked on slides.
+- Jacob: 
+- Ismael: 
 - Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
