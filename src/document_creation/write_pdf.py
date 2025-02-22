@@ -17,13 +17,13 @@ pixel coordinates of the top-left corner of the n-th field's blank. For example,
 
 SAMPLE_PNG_PATH = "./W-2.png"
 
-# Helper functions
+# Helper functions:
 def encode_image(img_path):
     with open(img_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
     
 
-def overlay_text(img_path, output_img_path, text_list, coordinates_list, font_path=None, font_size=20):
+def overlay_text(img_path, output_img_path, text_list, coordinates_list, font_path="./fonts/arial/arial.ttf", font_size=20):
     image = Image.open(img_path)
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
@@ -68,13 +68,13 @@ def write_pdf(jsonString, label_coords, img_path, output_img_path):
 
 if __name__ == "__main__":
     # example json
-    jsonString = '{ "employee social security number": "000-11-2222", \
-                "employer identification number": "999-888-777", \
+    jsonString = '{ "Employee social security number": "000-11-2222", \
+                "Employer identification number": "999-888-777", \
                 "Wages, tips, other compensation": "64000" }'
     
     # example label coordinates, assuming we have the locations of each element in 
     # the JSON (which we collect when first uploading the form)
-    label_coords = [(288, 74), (88, 116), (610, 116)]
+    label_coords = [(292, 69), (89, 111), (614, 111)]
 
     # form to be filled out
     img_path = SAMPLE_PNG_PATH
