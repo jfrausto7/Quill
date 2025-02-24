@@ -13,3 +13,5 @@ pytesseract
 pdfminer.six
 pi_heif
 pdf2image
+uvicorn
+fastapi
