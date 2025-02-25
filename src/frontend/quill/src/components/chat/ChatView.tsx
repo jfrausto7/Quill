@@ -56,11 +56,11 @@ const ChatView = ({ onBack, messages, onMessagesUpdate }: ChatViewProps) => {
       <div className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
         <button
           onClick={onBack}
-          className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
+          className="text-lg text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
         >
           ← Back
         </button>
-        <h1 className="font-semibold text-gray-900 dark:text-white">Form Assistant</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Form Assistant</h1>
         <div className="w-8" />
       </div>
 

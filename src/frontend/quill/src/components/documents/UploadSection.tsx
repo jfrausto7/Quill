@@ -73,12 +73,12 @@ const UploadSection = () => {
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Upload Documents</h2>
+      <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Upload Documents</h2>
       <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
         {isUploading ? (
           <div className="flex flex-col items-center">
             <Loader2 className="h-12 w-12 animate-spin text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Processing document...</p>
+            <p className="text-md text-gray-500 dark:text-gray-400">Processing document...</p>
           </div>
         ) : (
           <>
@@ -95,13 +95,13 @@ const UploadSection = () => {
                 accept=".pdf,.doc,.docx"
               />
             </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-md text-gray-500 dark:text-gray-400 mt-2">
               Supported formats: PDF, DOC, DOCX
             </p>
           </>
         )}
         {uploadStatus && (
-          <p className={`mt-4 text-sm ${uploadStatus.includes('Failed') ? 'text-red-500' : 'text-green-500'}`}>
+          <p className={`mt-4 text-md ${uploadStatus.includes('Failed') ? 'text-red-500' : 'text-green-500'}`}>
             {uploadStatus}
           </p>
         )}
