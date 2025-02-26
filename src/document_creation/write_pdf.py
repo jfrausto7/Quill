@@ -9,6 +9,13 @@ from find_label_coords import find_label_coords
 from rag import quill_rag
 import subprocess
 
+"""Example script usage: python3 src/document_creation/write_pdf.py SAMPLE_PNG_PATH SAMPLE_JSON"""
+SAMPLE_PNG_PATH = "./W-2.png"
+
+SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", \
+                "Employer identification number": "999-888-777", \
+                "Wages, tips, other compensation": "64000" }'
+
 MODEL_NAME = "gpt-4o-mini"
 
 SYSTEM_PROMPT = """You are a helpful, form-filling assistant. The user will provide you with an 
@@ -21,12 +28,6 @@ should begin. Lastly, output your response as a list of tuples (no additional te
 n-th tuple contains the x,y pixel coordinates of the top-left corner of the n-th field's blank. 
 For example, if the user input was: 'name: (100, 100), EIN: (200, 200), cell: (300, 300)' 
 respectively, your output should be of the exact format: [(120, 100),(220, 200),(300, 330)]."""
-
-SAMPLE_PNG_PATH = "./W-2.png"
-
-SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", \
-                "Employer identification number": "999-888-777", \
-                "Wages, tips, other compensation": "64000" }'
 
 
 def encode_image(img_path):
