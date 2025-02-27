@@ -31,10 +31,7 @@ async function runPythonScript(scriptPath: string, args: string[]) {
   const isWindows = os.platform() === 'win32';
   const condaEnv = 'quill';
 
-  // Properly escape and quote arguments, especially JSON strings
   const quotedArgs = args.map(arg => {
-    // If the argument contains spaces or special characters, wrap it in quotes
-    // and escape any existing quotes
     if (arg.includes(' ') || arg.includes('"') || arg.includes("'") || arg.includes('{')) {
       const escapedArg = arg.replace(/"/g, '\\"');
       return `"${escapedArg}"`;
@@ -72,6 +69,8 @@ export async function POST(request: Request) {
     console.log('Request mode:', mode);
 
     const ragScriptPath = path.join('..', '..', 'rag', 'quill_rag.py');
+    const writePdfScriptPath = path.join('..', '..', 'document_creation', 'write_pdf.py');
+    
     try {
       await fs.access(ragScriptPath);
       console.log('RAG script found at:', ragScriptPath);
@@ -121,11 +120,8 @@ export async function POST(request: Request) {
 
       const documentPath = path.join('..', '..', 'uploads', documentName as string);
       
-      // Build args array without the chat history first
       const args = ['--mode', 'query', '--document', documentPath, '--question', message as string];
       
-      // Add chat history separately if it exists
-      // Write chat history to a temporary file instead of passing it directly
       if (chatHistory) {
         const tempChatHistoryPath = path.join('..', '..', 'uploads', 'temp_chat_history.json');
         await writeFile(tempChatHistoryPath, chatHistory as string);
@@ -139,6 +135,32 @@ export async function POST(request: Request) {
         return NextResponse.json({ content: result.response });
       } catch {
         return NextResponse.json({ content: stdout.trim() });
+      }
+    } 
+    else if (mode === 'blank') {
+      const file = formData.get('file') as File;
+      const jsonString = formData.get('jsonString') as string;
+      if (!file || !jsonString) {
+        return NextResponse.json({ error: 'File and JSON string are required' }, { status: 400 });
+      }
+
+      console.log('Processing blank form:', file.name);
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const filePath = await saveUploadedFile(buffer, file.name);
+
+      const { stdout } = await runPythonScript(
+        writePdfScriptPath,
+        [filePath, jsonString]
+      );
+
+      try {
+        const result = JSON.parse(stdout);
+        return NextResponse.json(result);
+      } catch {
+        return NextResponse.json({ 
+          message: 'Blank form processed successfully',
+          details: stdout 
+        });
       }
     }
 
