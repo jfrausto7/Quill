@@ -22,6 +22,14 @@ TODO
 
 Run the frontend with `python src/main.py` and navigate to http://localhost:3000/
 
+To test document creation, run: `python3 src/document_creation/write_pdf.py PNG_PATH JSON`
+where `PNG_PATH` is the path to an empty form png (e.g. "./W-2.png") and `JSON` is a 
+.json file containing the labels and their respective answers. For example:
+
+SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", 
+                "Employer identification number": "999-888-777", 
+                "Wages, tips, other compensation": "64000" }'
+
 ## OpenAI Assistant API
 
 A side experiment named 'openai_assistant' leverages the OpenAI Assistant API to automate document processing to build a proof of concept. To implement the notebook, an API key needs to be inserted at the first cell. The experiment can:
