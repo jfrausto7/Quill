@@ -1,5 +1,5 @@
 ollama
-cv2
+opencv-python
 spire.pdf
 langchain-community
 langchain-text-splitters
@@ -10,6 +10,7 @@ nltk
 unstructured
 unstructured-inference
 unstructured.pytesseract
+onnx
 pytesseract
 pdfminer.six
 pi_heif
@@ -20,5 +21,5 @@ jax[cpu]
 flax
 transformers
 huggingface_hub
-googletrans==4.0.0-rc1
+googletrans
 protobuf==3.20

@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext } from 'react';
 import { ChatService } from '@/services/chat/ChatService';
-import { R1ChatService } from '@/services/chat/R1ChatService';
 import { RAGChatService } from '@/services/chat/RAGChatService';
 
 interface ChatContextType {

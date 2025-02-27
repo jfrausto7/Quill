@@ -30,8 +30,8 @@ const DocumentAssistant = () => {
   const LandingView = () => (
     <div className="max-w-4xl mx-auto p-6">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">Document Assistant</h1>
-        <p className="text-lg text-gray-600 dark:text-gray-300">
+        <h1 className="text-6xl font-bold mb-4 text-gray-900 dark:text-white">Document Assistant</h1>
+        <p className="text-2xl text-gray-600 dark:text-gray-300">
           Store your documents securely and let AI help you fill out forms
         </p>
       </div>
@@ -40,8 +40,8 @@ const DocumentAssistant = () => {
         <UploadSection />
         
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Start Filling Forms</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Start Filling Forms</h2>
+          <p className="text-lg text-center text-gray-600 dark:text-gray-300 mb-4">
             Ready to fill out a form? Our AI assistant will help you using information from your stored documents.
           </p>
           <button
