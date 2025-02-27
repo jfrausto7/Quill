@@ -55,3 +55,10 @@ Sprint #2:
 - Jacob: Experimented w/ MongoDB for document management/encryption. Integrated RAG system into chat interface.
 - Ismael: Wrote the fine-tune script for llama3.2 vision, began the construction of the form-field-detection dataset, (WIP) Integrating llama 3.2 system into chat interface
 - Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
+
+Sprint #3:
+- Daniel: 
+- Dante: 
+- Jacob: Experimented w/ local LLM memory optimization. Improved UI features based on feedback.
+- Ismael:
+- Neil:
