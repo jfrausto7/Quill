@@ -58,7 +58,7 @@ Sprint #2:
 
 Sprint #3:
 - Daniel: Upgraded RAG to process various document types (PDF, Word, Images, and CSV) with persistent storage and vector database referencing for uploads; worked on slides and demo
-- Dante: 
+- Dante: Wrote two scripts: write_pdf.py and find_source_coords.py, which leverage LLM calls (GPT4o-mini) and OCR (Google Tesseract) to handle the final workflow task of finalized form creation. Worked on slides and demo.
 - Jacob: Experimented w/ local LLM memory optimization. Improved UI features based on feedback.
 - Ismael:
 - Neil:
