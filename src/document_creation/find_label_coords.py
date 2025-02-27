@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 import pytesseract
 
 def find_label_coords(image_path, phrases):
@@ -9,10 +8,6 @@ def find_label_coords(image_path, phrases):
     the image. It returns a list of tuples, where each tuple contains the x, y pixel coordinates of 
     the top-left corner of a label.
     """
-    # Load the form image
-    image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # to grayscale
-
     data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
     words = data["text"]
     coords = []
