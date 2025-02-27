@@ -1,0 +1,45 @@
+{
+    "filled_w2": "vector_db/filled_w2",
+    "EmployeeSSN": "123-45-6789",
+    "EmployerID": "12-1234567",
+    "Wages": 50000,
+    "FederalIncomeTaxWithheld": 1111,
+    "EmployersNameAddressZIP": "Readdle | 795 Folsom Street San Francisco, CA 94107",
+    "SocialSecurityWages": 35000,
+    "SocialSecurityTaxWithheld": 1111,
+    "MedicareWagesTips": 45000,
+    "MedicareTaxWithheld": 1111,
+    "EmployeeNameAddressZIP": "Nikita V Bilyk | 123 Example Street Sample City, CA 12345",
+    "DependentCareBenefits": 1234,
+    "NonqualifiedPlans": 41,
+    "StateWagesTips": 50000,
+    "StateIncomeTax": 1535,
+    "LocalWagesTips": 50000,
+    "LocalIncomeTax": 750,
+    "Employee's social security number": "123-45-6789",
+    "Employer identification number (E)": "12-1234567",
+    "Wages, tips, other compensation": 50000.0,
+    "Federal income tax withheld": 1111.0,
+    "Employer's name, address, and ZIP code": {
+        "name": "Readdle",
+        "address": "Folsom Street",
+        "city": "San Francisco",
+        "state": "CA",
+        "zip code": "94107"
+    },
+    "Social security wages": 35000.0,
+    "Social security tax withheld": 1111.0,
+    "Medicare wages and tips": 45000.0,
+    "Medicare tax withheld": 1111.0,
+    "Employee's first name": "Nikita",
+    "Employee's last name": "V Bilyk",
+    "Employer's state ID number": "OH",
+    "State wages, tips, ato": {
+        "wages": 50000,
+        "tax": 1535
+    },
+    "Local wages, tips, ot": {
+        "wages": 50000,
+        "tax": 750
+    }
+}

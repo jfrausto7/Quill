@@ -57,7 +57,7 @@ Sprint #2:
 - Neil: Prepared user interview form and conducted preliminary interviews; project management; provided input on solution; mentored on slides and presentation
 
 Sprint #3:
-- Daniel: 
+- Daniel: Upgraded RAG to process various document types (PDF, Word, Images, and CSV) with persistent storage and vector database referencing for uploads; worked on slides and demo
 - Dante: 
 - Jacob: Experimented w/ local LLM memory optimization. Improved UI features based on feedback.
 - Ismael:
