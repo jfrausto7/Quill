@@ -16,7 +16,7 @@ SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", \
                 "Employer identification number": "999-888-777", \
                 "Wages, tips, other compensation": "64000" }'
 
-MODEL_NAME = "gpt-4o-mini"
+MODEL_NAME = "gpt-4o-mini" # configure API key by running: `export OPENAI_API_KEY="your_api_key_here"`
 
 SYSTEM_PROMPT = """You are a helpful, form-filling assistant. The user will provide you with an 
 image of a form, as well as a list of fields that need to be filled in along with their label 
@@ -91,7 +91,7 @@ def main():
 
     # form to be filled out
     img_path = args[0]
-    output_img_path = img_path.split(".")[0] + "_filled.png"
+    output_img_path = img_path[0, img_path.rfind('.')] + "_filled.png"
     jsonString = args[1]
 
     # question = f"""You are a helpful, form-filling assistant. The user will provide you with an 
