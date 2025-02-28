@@ -70,4 +70,4 @@ Sprint #3:
 - Dante: Wrote two scripts: write_pdf.py and find_source_coords.py, which leverage LLM calls (GPT4o-mini) and OCR (Google Tesseract) to handle the final workflow task of finalized form creation. Worked on slides and demo.
 - Jacob: Experimented w/ local LLM memory optimization. Improved UI features based on feedback.
 - Ismael:
-- Neil:
+- Neil: Finalized user survey form, and collected and analyzed results.  Developed "coming soon" website with waiting list feature; project management; provided input on workflow and demo; mentored on slides and presentation.
