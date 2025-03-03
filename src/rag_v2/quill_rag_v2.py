@@ -21,12 +21,10 @@ import ollama
 logging.basicConfig(level=logging.INFO)
 
 # Constants
-DOC_PATH1 = "screen_shot.png"  # For ingest mode – can be PDF, Word, image, or CSV.
-DOC_PATH2 = "sample_form.pdf"    # For query mode – the new form to be processed.
 VECTOR_DB_DIR = "vector_db"      # Base directory for persisting vector DBs.
 MODEL_NAME = "llama3.2-vision:11b"
 EMBEDDING_MODEL = "nomic-embed-text"
-USER_INFO_JSON = "user_info.json"
+USER_INFO_JSON = "../../uploads/user_info.json"  # Updated to match original path
 
 def ingest_file(file_path):
     """Load a file (PDF, Word, image, or CSV) using the appropriate loader."""
@@ -71,7 +69,11 @@ def extract_key_value_info(chunks, llm):
     result = llm.invoke(input=prompt)
     logging.info("Key-value information extracted from document.")
     try:
-        info = json.loads(result.content.strip())
+        # Remove code block markers if they exist
+        content = result.content.strip()
+        if content.startswith('```') and content.endswith('```'):
+            content = content[3:-3].strip()
+        info = json.loads(content)
     except Exception as e:
         logging.error("Failed to parse JSON output from LLM: " + str(e))
         info = {}
@@ -99,8 +101,11 @@ def create_vector_db(chunks, collection_name):
     Create a vector database from document chunks using the given collection name.
     The vector DB is persisted under VECTOR_DB_DIR/<collection_name>.
     """
+    # Ensure the vector DB directory exists
+    os.makedirs(VECTOR_DB_DIR, exist_ok=True)
     persist_dir = os.path.join(VECTOR_DB_DIR, collection_name)
     os.makedirs(persist_dir, exist_ok=True)
+    
     ollama.pull(EMBEDDING_MODEL)
     vector_db = Chroma.from_documents(
         documents=chunks,
@@ -117,6 +122,9 @@ def update_user_info_json(new_info, json_file=USER_INFO_JSON):
     """
     Update the JSON file of user information with new key-value pairs.
     """
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(json_file), exist_ok=True)
+    
     if os.path.exists(json_file):
         try:
             with open(json_file, "r") as f:
@@ -162,54 +170,127 @@ def create_retriever(vector_db, llm):
     logging.info("Retriever created.")
     return retriever
 
-def create_chain(new_form, llm, user_info="", uploaded=None):
+def format_chat_history(chat_history_path):
+    """Format chat history for the prompt."""
+    if not chat_history_path:
+        return ""
+    try:
+        with open(chat_history_path, 'r') as f:
+            chat_history = json.load(f)
+        formatted = "\nPrevious conversation:\n"
+        for msg in chat_history:
+            role = "User" if msg['type'] == 'user' else "Assistant"
+            formatted += f"{role}: {msg['content']}\n"
+        return formatted
+    except Exception as e:
+        logging.error(f"Error reading chat history: {e}")
+        return ""
+
+def answer_query(llm, question, user_info="", chat_history=""):
     """
-    Create a chain that combines contexts from the new form and from a list of uploaded forms.
-    The LLM will be informed that it can use info from the uploaded forms to fill out the new form.
+    Answer a query using stored data and vector DBs of uploaded forms.
+    This preserves the more advanced logic of v2 while maintaining the
+    original interface.
     """
-    if uploaded is None:
-        uploaded = []
+    try:
+        user_info_dict = json.loads(user_info)
+    except Exception as e:
+        logging.error(f"Error parsing user_info: {e}")
+        return "Sorry, I couldn't process your request due to an error with user information."
+    
+    # Check if we have any persisted vector DBs
+    uploaded_forms = []
+    for key, value in user_info_dict.items():
+        if isinstance(value, str) and value.startswith(VECTOR_DB_DIR) and os.path.exists(value) and os.path.isdir(value):
+            try:
+                retriever = create_retriever(
+                    Chroma(
+                        persist_directory=value,
+                        collection_name=key,
+                        embedding_function=OllamaEmbeddings(model=EMBEDDING_MODEL),
+                    ),
+                    llm
+                )
+                uploaded_forms.append(retriever)
+            except Exception as e:
+                logging.error(f"Error loading vector DB for {key}: {e}")
+    
+    # If we don't have any vector DBs, fall back to simple query answering
+    if not uploaded_forms:
+        prompt = f"""Based on the following user information and chat history, answer the question.
+        
+        User Information:
+        {user_info}
+
+        {chat_history}
+        
+        Question: {question}
+        
+        Please provide a direct and helpful response."""
+
+        response = llm.invoke(input=prompt)
+        return response.content.strip()
+    
+    # If we have vector DBs, use the more sophisticated approach from v2
     template = (
-        "You are an AI assistant tasked with filling out a new form. Use the following contexts:\n\n"
-        "New Form Context:\n{new_form_context}\n\n"
+        "You are an AI assistant tasked with helping the user. Use the following contexts:\n\n"
         "Uploaded Forms Context:\n{uploaded_forms_context}\n\n"
         "Additional User Information:\n{user_info}\n\n"
+        "Chat History:\n{chat_history}\n\n"
         "Based on the above, answer the question:\n{question}\n"
     )
-    def chain_invoke(question: str) -> str:
-        new_form_docs = new_form.get_relevant_documents(question)
-        new_form_context = "\n".join(doc.page_content for doc in new_form_docs)
-        uploaded_contexts = []
-        for r in uploaded:
-            docs = r.get_relevant_documents(question)
-            context_str = "\n".join(doc.page_content for doc in docs)
-            uploaded_contexts.append(context_str)
-        uploaded_forms_context = "\n".join(uploaded_contexts)
-        prompt_text = template.format(
-            new_form_context=new_form_context,
-            uploaded_forms_context=uploaded_forms_context,
-            user_info=user_info,
-            question=question
-        )
-        response = llm.invoke(input=prompt_text)
-        return response.content.strip()
-    return chain_invoke
+    
+    # Gather contexts from all retrievers
+    uploaded_contexts = []
+    for retriever in uploaded_forms:
+        docs = retriever.get_relevant_documents(question)
+        context_str = "\n".join(doc.page_content for doc in docs)
+        uploaded_contexts.append(context_str)
+    
+    uploaded_forms_context = "\n".join(uploaded_contexts)
+    
+    prompt_text = template.format(
+        uploaded_forms_context=uploaded_forms_context,
+        user_info=user_info,
+        chat_history=chat_history,
+        question=question
+    )
+    
+    response = llm.invoke(input=prompt_text)
+    return response.content.strip()
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run in two modes: ingest (update user_info.json and store vector DB) or query (use stored info and vector DBs to answer questions)."
+        description="Run in one of two modes: ingest (update user_info.json) or query (answer query using stored user info)."
     )
     parser.add_argument(
         "--mode",
         choices=["ingest", "query"],
         required=True,
-        help="Mode: 'ingest' to update user_info.json and persist vector DB; 'query' to answer a question using stored info and vector DBs.",
+        help="Mode: 'ingest' to update user_info.json from the document, 'query' to answer a question using stored user info.",
     )
+    parser.add_argument(
+        "--document",
+        type=str,
+        required=True,
+        help="Path to the document file"
+    )
+    parser.add_argument(
+        "--question",
+        type=str,
+        help="Question for query mode"
+    )
+    parser.add_argument(
+        "--chat-history",
+        type=str,
+        help="Path to chat history JSON file"
+    )
+
     args = parser.parse_args()
     
     if args.mode == "ingest":
-        # Ingest file from DOC_PATH1 (any supported file type).
-        data = ingest_file(DOC_PATH1)
+        # Process document
+        data = ingest_file(args.document)
         if data is None:
             return
         chunks = split_documents(data)
@@ -218,62 +299,39 @@ def main():
         logging.info(f"Extracted key-value pairs: {key_value_info}")
         update_user_info_json(key_value_info)
         
-        # Use the file name (without extension) as the collection name/key.
-        filename = os.path.basename(DOC_PATH1)
-        collection_name = os.path.splitext(filename)[0]
-        
+        # Additional for v2: Store vector DB
+        filename = os.path.basename(args.document)
+        collection_name = sanitize_collection_name(os.path.splitext(filename)[0])
         vector_db = create_vector_db(chunks, collection_name)
         vector_db_path = os.path.join(VECTOR_DB_DIR, collection_name)
         update_user_info_json({collection_name: vector_db_path})
-        print("User info JSON has been updated and vector database persisted.")
+        
+        print(json.dumps({
+            "status": "success",
+            "message": "Document processed successfully"
+        }))
     
     elif args.mode == "query":
-        # Load stored user info.
+        if not args.question:
+            print(json.dumps({"error": "Question is required for query mode"}))
+            return
+        
+        # Load stored user info
         user_info_str = load_user_info()
         if not user_info_str:
-            logging.error("User info JSON is empty or missing. Run in 'ingest' mode first.")
+            print(json.dumps({"error": "No user information found"}))
             return
-        
-        try:
-            user_info_dict = json.loads(user_info_str)
-        except Exception as e:
-            logging.error(f"Error parsing user_info.json: {e}")
-            return
-        
-        # Load retrievers for each uploaded form (persisted vector DB).
-        uploaded_forms = []
-        for key, value in user_info_dict.items():
-            if isinstance(value, str) and os.path.exists(value) and os.path.isdir(value):
-                retriever = create_retriever(
-                    Chroma(
-                        persist_directory=value,
-                        collection_name=key,
-                        embedding_function=OllamaEmbeddings(model=EMBEDDING_MODEL),
-                    ),
-                    ChatOllama(model=MODEL_NAME)
-                )
-                uploaded_forms.append(retriever)
-        if not uploaded_forms:
-            logging.error("No valid uploaded forms vector DB found in user_info.json. Run in ingest mode first.")
-            return
-        
-        # Process the new form from DOC_PATH2.
-        data = ingest_file(DOC_PATH2)
-        if data is None:
-            return
-        chunks = split_documents(data)
-        new_form_collection = "new_form"
-        new_form_vector_db = create_vector_db(chunks, new_form_collection)
+
+        # Get chat history if provided
+        chat_history = ""
+        if args.chat_history:
+            chat_history = format_chat_history(args.chat_history)
+
+        # Initialize LLM and get response
         llm = ChatOllama(model=MODEL_NAME)
-        new_form_retriever = create_retriever(new_form_vector_db, llm)
+        response = answer_query(llm, args.question, user_info_str, chat_history)
         
-        # Create a chain that incorporates both the new form and the uploaded forms contexts.
-        chain = create_chain(new_form=new_form_retriever, llm=llm, user_info=user_info_str, uploaded=uploaded_forms)
-        
-        question = input("Enter your question: ")
-        res = chain(question)
-        print("Response:")
-        print(res)
+        print(json.dumps({"response": response}))
 
 if __name__ == "__main__":
     main()
