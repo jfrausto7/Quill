@@ -312,6 +312,7 @@ def main():
         }))
     
     elif args.mode == "query":
+        # TODO: Add support for editing user_info.json
         if not args.question:
             print(json.dumps({"error": "Question is required for query mode"}))
             return

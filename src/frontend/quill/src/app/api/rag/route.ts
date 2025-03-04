@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     const mode = formData.get('mode');
     console.log('Request mode:', mode);
 
-    const ragScriptPath = path.join('..', '..', 'rag', 'quill_rag.py');
+    const ragScriptPath = path.join('..', '..', 'rag_v2', 'quill_rag_v2.py');
     const writePdfScriptPath = path.join('..', '..', 'document_creation', 'write_pdf.py');
     
     try {
@@ -147,6 +147,8 @@ export async function POST(request: Request) {
       console.log('Processing blank form:', file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = await saveUploadedFile(buffer, file.name);
+
+      // TODO: Call the rag_v2 script with the blank form and JSON string query
 
       const { stdout } = await runPythonScript(
         writePdfScriptPath,
