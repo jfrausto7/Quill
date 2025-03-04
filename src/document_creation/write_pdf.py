@@ -6,8 +6,6 @@ import base64
 from PIL import Image, ImageDraw, ImageFont
 import ast
 from find_label_coords import find_label_coords
-from rag import quill_rag
-import subprocess
 
 """Example script usage: python3 src/document_creation/write_pdf.py SAMPLE_PNG_PATH SAMPLE_JSON"""
 SAMPLE_PNG_PATH = "./W-2.png"
@@ -93,19 +91,6 @@ def main():
     img_path = args[0]
     output_img_path = img_path[0, img_path.rfind('.')] + "_filled.png"
     jsonString = args[1]
-
-    # question = f"""You are a helpful, form-filling assistant. The user will provide you with an 
-    #             image of a blank or partially-filled form. For each field, your task is to generate
-    #             the answer to the question, 'What is the value of the field?' and add the field label
-    #             and its answer as a key-value pair to a .JSON file. If the answer to the field is
-    #             not already in the form, check if you can find the answer in the chat history.
-    #             Lastly, output your answer as a .JSON file with no additional text. For example,
-    #             your output should be of the exact format: {SAMPLE_JSON}"""
-
-    # command = f"quill_rag_v2.py --mode query --document {img_path} --question {question} --chat-history {chat_history}"
-    # print(command.split())
-    # subprocess.call("../rag_v2/quill_rag_v2.py", shell=True)
-    # sys.argv = command.split()
     
     # Find the locations of each element in the JSON.
     label_coords = find_label_coords(img_path, jsonString)
