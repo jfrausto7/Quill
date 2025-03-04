@@ -47,14 +47,13 @@ def overlay_text(img_path, output_img_path, text_list, coordinates_list,
     image.save(output_img_path)
 
 
-def write_pdf(jsonString, label_coords, img_path, output_img_path):
+def write_pdf(fields, label_coords, img_path, output_img_path):
     """
     write_pdf takes in a JSON string of fields and their values, a list of label coordinates, 
     and an image path. The function calls an LLM to identify the coordinates of the blanks where 
     the values should be filled in, and then calls overlay_text() to create a filled pdf.
     """
     client = OpenAI()
-    fields = json.loads(jsonString)
     base64_image = encode_image(img_path)
 
     # Format LLM query
@@ -89,13 +88,16 @@ def main():
 
     # form to be filled out
     img_path = args[0]
-    output_img_path = img_path[0:img_path.rfind('.')] + "_filled.png"
-    jsonString = args[1]
+    output_img_path = img_path.split(".png")[0] + "_filled.png"
+
+    with open(args[1]) as json_path:
+        json_string = json.load(json_path)
+        json_path.close()
     
     # Find the locations of each element in the JSON.
-    label_coords = find_label_coords(img_path, jsonString)
+    label_coords = find_label_coords(img_path, json_string)
 
-    write_pdf(jsonString, label_coords, img_path, output_img_path)
+    write_pdf(json_string, label_coords, img_path, output_img_path)
 
 if __name__ == "__main__":
     main()
