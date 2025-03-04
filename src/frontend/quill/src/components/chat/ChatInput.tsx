@@ -8,9 +8,11 @@ import UploadModal from './UploadModal';
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading?: boolean;
+  onAgentResponse?: (message: string) => void; // For agent messages
+  onSilentUpload?: (fileName: string) => void; // For uploads without triggering LLM
 }
 
-const ChatInput = ({ onSendMessage, isLoading = false }: ChatInputProps) => {
+const ChatInput = ({ onSendMessage, isLoading = false, onAgentResponse, onSilentUpload }: ChatInputProps) => {
   const [input, setInput] = useState('');
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [uploadError, setUploadError] = useState('');
@@ -24,6 +26,24 @@ const ChatInput = ({ onSendMessage, isLoading = false }: ChatInputProps) => {
   // Tooltip timer refs
   const tooltip1Timer = useRef<NodeJS.Timeout | null>(null);
   const tooltip2Timer = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to check if a field should be excluded
+  const shouldIncludeField = (key: string, value: any): boolean => {
+    // Exclude fields that are file paths
+    if (typeof value === 'string' && value.includes('vector_db')) return false;
+    
+    // Exclude technical fields and collection names
+    if (key.includes('_')) return false;
+    
+    // Exclude fields with non-user-friendly values
+    if (typeof value === 'string' && (
+      value.startsWith('/') || 
+      value.includes('\\') || 
+      value.includes('/')
+    )) return false;
+    
+    return true;
+  };
 
   const handleMouseEnter = (tooltipNumber: 1 | 2) => {
     const timer = setTimeout(() => {
@@ -83,16 +103,19 @@ const ChatInput = ({ onSendMessage, isLoading = false }: ChatInputProps) => {
     setUploadedFileName(file.name);
     
     try {
+      // Sample form data for blank forms
+      const blankFormFields = {
+        "Employee social security number": "000-11-2222",
+        "Employer identification number": "999-888-777",
+        "Wages, tips, other compensation": "64000"
+      };
+      
       // Create form data
       const formData = new FormData();
       formData.append('file', file);
       formData.append('mode', isBlank ? 'blank' : 'ingest');
       if (isBlank) {
-        const jsonString = JSON.stringify({
-          "Employee social security number": "000-11-2222",
-          "Employer identification number": "999-888-777",
-          "Wages, tips, other compensation": "64000"
-        });
+        const jsonString = JSON.stringify(blankFormFields);
         formData.append('jsonString', jsonString);
       }
 
@@ -116,6 +139,45 @@ const ChatInput = ({ onSendMessage, isLoading = false }: ChatInputProps) => {
       });
 
       setUploadStatus('success');
+      
+      // For normal document uploads (not blank forms)
+      if (!isBlank) {
+        // Use the silent upload handler if available
+        if (onSilentUpload) {
+          onSilentUpload(file.name);
+        }
+        
+        // Fetch the user_info.json data after successful upload
+        try {
+          const userInfoResponse = await fetch('/api/user-info');
+          if (userInfoResponse.ok && onAgentResponse) {
+            const userInfo = await userInfoResponse.json();
+            
+            // Create a formatted list of the user info fields, filtering out technical/system fields
+            const fieldsList = Object.entries(userInfo)
+              .filter(([key, value]) => shouldIncludeField(key, value))
+              .map(([field, value]) => `- ${field}: ${value}`)
+              .join('\n');
+            
+            // Create a message from the agent for verification
+            const verificationMessage = `I've processed your uploaded document "${file.name}" and extracted the following information. Please verify if these details are correct:\n\n${fieldsList}\n\nWould you like me to make any changes or use this information to fill out forms?`;
+            
+            // Use a slight delay to ensure the upload modal shows first
+            setTimeout(() => {
+              onAgentResponse(verificationMessage);
+            }, 1000);
+          }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+          
+          // Fallback message if we can't get user info
+          if (onAgentResponse) {
+            setTimeout(() => {
+              onAgentResponse(`I've processed your document "${file.name}". Would you like me to help you fill out any forms using the information I extracted?`);
+            }, 1000);
+          }
+        }
+      }
     } catch (error) {
       console.error('Full upload error:', error);
       setUploadStatus('error');
