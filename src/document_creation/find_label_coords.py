@@ -8,7 +8,7 @@ def find_label_coords(image_path, phrases):
     the image. It returns a list of tuples, where each tuple contains the x, y pixel coordinates of 
     the top-left corner of a label.
     """
-    data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
+    data = pytesseract.image_to_data(image_path, output_type=pytesseract.Output.DICT)
     words = data["text"]
     coords = []
 
