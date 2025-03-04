@@ -89,7 +89,7 @@ def main():
 
     # form to be filled out
     img_path = args[0]
-    output_img_path = img_path[0, img_path.rfind('.')] + "_filled.png"
+    output_img_path = img_path[0:img_path.rfind('.')] + "_filled.png"
     jsonString = args[1]
     
     # Find the locations of each element in the JSON.
