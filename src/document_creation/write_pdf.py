@@ -1,3 +1,5 @@
+import os
+import logging
 import sys
 import numpy as np
 from openai import OpenAI
@@ -5,6 +7,7 @@ import json
 import base64
 from PIL import Image, ImageDraw, ImageFont
 import ast
+from pdf2image import convert_from_path
 from find_label_coords import find_label_coords
 
 """Example script usage: python3 src/document_creation/write_pdf.py SAMPLE_PNG_PATH SAMPLE_JSON"""
@@ -16,16 +19,17 @@ SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", \
 
 MODEL_NAME = "gpt-4o-mini" # configure API key by running: `export OPENAI_API_KEY="your_api_key_here"`
 
-SYSTEM_PROMPT = """You are a helpful, form-filling assistant. The user will provide you with an 
+SYSTEM_PROMPT = f"""You are a helpful, form-filling assistant. The user will provide you with an 
 image of a form, as well as a list of fields that need to be filled in along with their label 
 pixel coordinates on the page. For each field, your task is to identify the x,y pixel coordinates 
 of the blank corresponding to that field, where the user could insert a left-justified answer. 
 To do this, first determine where the answer should be written relative to the question 
-(i.e. above, right, below). Then, determine how many coordinates in this direction the answer 
-should begin. Lastly, output your response as a list of tuples (no additional text), where the 
-n-th tuple contains the x,y pixel coordinates of the top-left corner of the n-th field's blank. 
-For example, if the user input was: 'name: (100, 100), EIN: (200, 200), cell: (300, 300)' 
-respectively, your output should be of the exact format: [(120, 100),(220, 200),(300, 330)]."""
+(i.e. above, right, below). Then, consider the size of the image, and then choose coordinates which
+are far enough in the right direction such that there is a sizeable gap between the label and answer.
+Lastly, output your response as a list of tuples (no additional text), where the 
+n-th tuple contains the x,y pixel coordinates of the top-left corner of the n-th field's blank.
+For example, if the user input was: 'name: (x1, y1), EIN: (x2, y2), cell: (x3, y3)' respectively, 
+your output should be of the exact format: [(new_x1, new_y1),(new_x2, new_y2),(new_x3, new_y3)]."""
 
 
 def encode_image(img_path):
@@ -34,7 +38,28 @@ def encode_image(img_path):
         return base64.b64encode(image_file.read()).decode("utf-8")
     
 
-def overlay_text(img_path, output_img_path, text_list, coordinates_list, 
+def process_image_path(form_path):
+    """Take a path to an image or pdf and convert it into a list of png pages."""
+    image_paths = []
+    if not os.path.exists(form_path):
+        logging.error(f"File not found at path: {form_path}")
+        return None
+    ext = os.path.splitext(form_path)[1].lower()
+    if ext in [".png", ".jpg", ".jpeg"]:
+        image_paths.append(form_path)
+    elif ext == ".pdf":
+        pages = convert_from_path(form_path, 500)
+        for count, page in enumerate(pages):
+            pagename = f'tmp/page{count}.png'
+            page.save(pagename, 'PNG')
+            image_paths.append(pagename)
+    else:
+        logging.error(f"Unsupported file format: {ext}")
+        return None
+    return image_paths
+
+
+def overlay_text(img_path, text_list, coordinates_list, 
                  font_path="./fonts/arial/arial.ttf", font_size=20):
     """"Overlay text on an image at the given coordinates."""
     image = Image.open(img_path)
@@ -44,28 +69,31 @@ def overlay_text(img_path, output_img_path, text_list, coordinates_list,
     for text, (x, y) in zip(text_list, coordinates_list):
         draw.text((x, y), text, fill="black", font=font)
     
-    image.save(output_img_path)
+    return image
 
 
-def write_pdf(fields, label_coords, img_path, output_img_path):
+def populate_form(fields, label_coords, img_path):
     """
-    write_pdf takes in a JSON string of fields and their values, a list of label coordinates, 
+    populate_form takes in a JSON string of fields and their values, a list of label coordinates, 
     and an image path. The function calls an LLM to identify the coordinates of the blanks where 
     the values should be filled in, and then calls overlay_text() to create a filled pdf.
     """
     client = OpenAI()
     base64_image = encode_image(img_path)
+    
+    img = Image.open(img_path)
+    x, y = img.size
 
     # Format LLM query
     message = ""
-    for i, field in enumerate(fields.keys()):
-        message += field + ": " + str(label_coords[i]) + ", "
+    for field in label_coords:
+        message += field + ": " + str(label_coords[field]) + ", "
         
     # Call model to identify coordinates of blanks
     completion = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM_PROMPT + f"The size of this image is {x} pixels wide by {y} pixels long"},
             {
                 "role": "user",
                 "content": [
@@ -76,28 +104,46 @@ def write_pdf(fields, label_coords, img_path, output_img_path):
         ]
     )
     blank_coords = ast.literal_eval(completion.choices[0].message.content)
-    overlay_text(img_path, output_img_path, list(fields.values()), blank_coords)
+    return overlay_text(img_path, list(fields.values()), blank_coords, font_size=(10 + (x / 1000) * 10))
 
 
 def main():
     args = sys.argv[1:]
     if len(args) != 2:
-        print("Please provide the pathname of the empty form image to be filled and a JSON of all \
-              the fields and their values.")
+        print("Please provide the pathname of the folder holding the empty form to be filled and a JSON of all the fields and their values.")
         return
 
     # form to be filled out
-    img_path = args[0]
-    output_img_path = img_path[0:img_path.rfind('.')] + "_filled.png"
+    form_path = args[0]
+    image_paths = process_image_path(form_path)
+    if not image_paths:
+        logging.error(f"File not found at path: {form_path}")
+        return None
 
-    with open(args[1]) as json_path:
-        json_string = json.load(json_path)
-        json_path.close()
-    
-    # Find the locations of each element in the JSON.
-    label_coords = find_label_coords(img_path, json_string)
+    # json with all form fields and answers
+    json_path = args[1]
+    if not os.path.exists(json_path):
+        logging.error(f"File not found at path: {json_path}")
+        return
+    with open(json_path) as file:
+        json_string = json.load(file)
+        file.close()
 
-    write_pdf(json_string, label_coords, img_path, output_img_path)
+    output = []
+    output_path = form_path[0:form_path.rfind('.')] + "_filled.pdf"
+
+    for img_path in image_paths:
+        label_coords = find_label_coords(img_path, list(json_string.keys()))
+        page = populate_form(json_string, label_coords, img_path)
+        output.append(page)
+
+    if len(output) > 1: # if there are multiple pages, combine them as one pdf
+        output[0].save(output_path, save_all=True, append_images=output[1:])
+    else:
+        output[0].save(output_path)
+
+    for file in os.listdir("./tmp"):
+        os.remove("./tmp/" + file)
 
 if __name__ == "__main__":
     main()
