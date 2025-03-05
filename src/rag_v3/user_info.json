@@ -1,0 +1,11 @@
+{
+    "Name": "Daniel",
+    "Address": "735 Campus Dr",
+    "Phone": "111111123",
+    "Email": "daniel@gmail.com",
+    "sample_filled": "vector_db/sample_filled",
+    "billingAddress": "735 Campus Dr, Stanford, CA, 94305",
+    "allergies": "Avocados",
+    "update_info": "vector_db/update_info",
+    "employer_name": "Stanford University"
+}
