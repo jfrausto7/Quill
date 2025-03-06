@@ -12,21 +12,17 @@ from langchain.document_loaders.csv_loader import CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings, ChatOllama
-from langchain_core.output_parsers import StrOutputParser
 from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain.prompts import PromptTemplate
 import ollama
 
 logging.basicConfig(level=logging.INFO)
 
 # Constants
-DOC_PATH1 = "sample_filled.pdf"   # For ingest mode (can be any supported file)
-DOC_PATH2 = "sample_form.pdf"     # For query mode (new form to be processed)
-DOC_PATH3 = "update_info.png"          # For update mode (update user_info.json via a document)
 VECTOR_DB_DIR = "vector_db"       # Base directory for persisting vector DBs
 MODEL_NAME = "llama3.2-vision:11b"
 EMBEDDING_MODEL = "nomic-embed-text"
-USER_INFO_JSON = "user_info.json"
+USER_INFO_JSON = "../../uploads/user_info.json"
 
 ### Helper functions for file ingestion ###
 def ingest_file(file_path):
@@ -82,7 +78,10 @@ def extract_key_value_info(chunks, text, llm):
     result = llm.invoke(input=prompt)
     logging.info("Key-value information extracted from document.")
     try:
-        info = json.loads(result.content.strip())
+        content = result.content.strip()
+        if content.startswith('```') and content.endswith('```'):
+            content = content[3:-3].strip()
+        info = json.loads(content)
     except Exception as e:
         logging.error("Failed to parse JSON output from LLM: " + str(e))
         info = {}
@@ -110,8 +109,11 @@ def create_vector_db(chunks, collection_name):
     Create a vector database from document chunks using the given collection name.
     The vector DB is persisted under VECTOR_DB_DIR/<collection_name>.
     """
+    # Ensure the vector DB directory exists
+    os.makedirs(VECTOR_DB_DIR, exist_ok=True)
     persist_dir = os.path.join(VECTOR_DB_DIR, collection_name)
     os.makedirs(persist_dir, exist_ok=True)
+    
     ollama.pull(EMBEDDING_MODEL)
     vector_db = Chroma.from_documents(
         documents=chunks,
@@ -128,6 +130,9 @@ def update_user_info_json(new_info, json_file=USER_INFO_JSON):
     """
     Update the user_info JSON file by merging in new key-value pairs.
     """
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(json_file), exist_ok=True)
+    
     if os.path.exists(json_file):
         try:
             with open(json_file, "r") as f:
@@ -172,6 +177,22 @@ def create_retriever(vector_db, llm):
     )
     logging.info("Retriever created.")
     return retriever
+
+def format_chat_history(chat_history_path):
+    """Format chat history for the prompt."""
+    if not chat_history_path:
+        return ""
+    try:
+        with open(chat_history_path, 'r') as f:
+            chat_history = json.load(f)
+        formatted = "\nPrevious conversation:\n"
+        for msg in chat_history:
+            role = "User" if msg['type'] == 'user' else "Assistant"
+            formatted += f"{role}: {msg['content']}\n"
+        return formatted
+    except Exception as e:
+        logging.error(f"Error reading chat history: {e}")
+        return ""
 
 def create_chain(new_form, llm, user_info="", uploaded=None):
     """
@@ -252,7 +273,7 @@ def update_user_info_from_doc(file_path, llm, current_info: dict):
     update_user_info_json(merged)
     # Create and persist a vector DB for the update document.
     filename = os.path.basename(file_path)
-    collection_name = os.path.splitext(filename)[0]
+    collection_name = sanitize_collection_name(os.path.splitext(filename)[0])
     vector_db = create_vector_db(chunks, collection_name)
     vector_db_path = os.path.join(VECTOR_DB_DIR, collection_name)
     update_user_info_json({collection_name: vector_db_path})
@@ -268,104 +289,193 @@ def update_user_info_from_conversation(text, llm, current_info: dict):
     update_user_info_json(merged)
     return merged
 
-### Main function with three modes: ingest, query, update ###
-def main():
-    parser = argparse.ArgumentParser(
-        description="Run in three modes: ingest, query, or update. "
-                    "Ingest: process an uploaded file; Query: answer questions using stored info; "
-                    "Update: update the stored user info via a new file or conversation."
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["ingest", "query", "update"],
-        required=True,
-        help="Mode: 'ingest' to process a file; 'query' to answer questions; 'update' to update user info."
-    )
-    args = parser.parse_args()
+def answer_query(llm, question, user_info="", chat_history=""):
+    """
+    Answer a query using stored data and vector DBs of uploaded forms.
+    """
+    try:
+        user_info_dict = json.loads(user_info)
+    except Exception as e:
+        logging.error(f"Error parsing user_info: {e}")
+        return "Sorry, I couldn't process your request due to an error with user information."
     
-    if args.mode == "ingest":
-        # Ingest mode: process DOC_PATH1.
-        data = ingest_file(DOC_PATH1)
-        if data is None:
-            return
-        chunks = split_documents(data)
-        llm = ChatOllama(model=MODEL_NAME)
-        key_value_info = extract_key_value_info(chunks, None, llm)
-        logging.info(f"Extracted key-value pairs: {key_value_info}")
-        update_user_info_json(key_value_info)
-        filename = os.path.basename(DOC_PATH1)
-        collection_name = os.path.splitext(filename)[0]
-        vector_db = create_vector_db(chunks, collection_name)
-        vector_db_path = os.path.join(VECTOR_DB_DIR, collection_name)
-        update_user_info_json({collection_name: vector_db_path})
-        print("User info JSON has been updated and vector database persisted.")
-    
-    elif args.mode == "query":
-        # Query mode: load stored user info and persisted vector DBs.
-        user_info_str = load_user_info()
-        if not user_info_str:
-            logging.error("User info JSON is empty or missing. Run in 'ingest' mode first.")
-            return
-        try:
-            user_info_dict = json.loads(user_info_str)
-        except Exception as e:
-            logging.error(f"Error parsing user_info.json: {e}")
-            return
-        uploaded_forms = []
-        for key, value in user_info_dict.items():
-            if isinstance(value, str) and os.path.exists(value) and os.path.isdir(value):
+    # Check if we have any persisted vector DBs
+    uploaded_forms = []
+    for key, value in user_info_dict.items():
+        if isinstance(value, str) and value.startswith(VECTOR_DB_DIR) and os.path.exists(value) and os.path.isdir(value):
+            try:
                 retriever = create_retriever(
                     Chroma(
                         persist_directory=value,
                         collection_name=key,
                         embedding_function=OllamaEmbeddings(model=EMBEDDING_MODEL),
                     ),
-                    ChatOllama(model=MODEL_NAME)
+                    llm
                 )
                 uploaded_forms.append(retriever)
-        if not uploaded_forms:
-            logging.error("No valid uploaded forms vector DB found in user_info.json. Run in ingest mode first.")
+            except Exception as e:
+                logging.error(f"Error loading vector DB for {key}: {e}")
+    
+    # If we don't have any vector DBs, fall back to simple query answering
+    if not uploaded_forms:
+        prompt = f"""Based on the following user information and chat history, answer the question.
+        
+        User Information:
+        {user_info}
+
+        {chat_history}
+        
+        Question: {question}
+        
+        Please provide a direct and helpful response."""
+
+        response = llm.invoke(input=prompt)
+        return response.content.strip()
+    
+    # If we have vector DBs, use the more sophisticated approach
+    template = (
+        "You are an AI assistant tasked with helping the user. Use the following contexts:\n\n"
+        "Uploaded Forms Context:\n{uploaded_forms_context}\n\n"
+        "Additional User Information:\n{user_info}\n\n"
+        "Chat History:\n{chat_history}\n\n"
+        "Based on the above, answer the question:\n{question}\n"
+    )
+    
+    # Gather contexts from all retrievers
+    uploaded_contexts = []
+    for retriever in uploaded_forms:
+        docs = retriever.get_relevant_documents(question)
+        context_str = "\n".join(doc.page_content for doc in docs)
+        uploaded_contexts.append(context_str)
+    
+    uploaded_forms_context = "\n".join(uploaded_contexts)
+    
+    prompt_text = template.format(
+        uploaded_forms_context=uploaded_forms_context,
+        user_info=user_info,
+        chat_history=chat_history,
+        question=question
+    )
+    
+    response = llm.invoke(input=prompt_text)
+    return response.content.strip()
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run in multiple modes: ingest (update user_info.json), query (answer questions), or update (update user info)."
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["ingest", "query", "update"],
+        required=True,
+        help="Mode: 'ingest' to process a file and update user info; 'query' to answer questions; 'update' to update user info."
+    )
+    parser.add_argument(
+        "--document",
+        type=str,
+        help="Path to the document file for ingest and update modes"
+    )
+    parser.add_argument(
+        "--question",
+        type=str,
+        help="Question for query mode"
+    )
+    parser.add_argument(
+        "--chat-history",
+        type=str,
+        help="Path to chat history JSON file for query mode"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.mode == "ingest":
+        if not args.document:
+            print(json.dumps({"error": "Document is required for ingest mode"}))
             return
-        data = ingest_file(DOC_PATH2)
+            
+        # Process document
+        data = ingest_file(args.document)
         if data is None:
+            print(json.dumps({"error": "Failed to ingest document"}))
             return
+            
         chunks = split_documents(data)
-        new_form_collection = "new_form"
-        new_form_vector_db = create_vector_db(chunks, new_form_collection)
         llm = ChatOllama(model=MODEL_NAME)
-        new_form_retriever = create_retriever(new_form_vector_db, llm)
-        chain = create_chain(new_form=new_form_retriever, llm=llm, user_info=user_info_str, uploaded=uploaded_forms)
-        question = input("Enter your question: ")
-        res = chain(question)
-        print("Response:")
-        print(res)
+        key_value_info = extract_key_value_info(chunks, None, llm)
+        logging.info(f"Extracted key-value pairs: {key_value_info}")
+        update_user_info_json(key_value_info)
+        
+        # Create and store vector DB
+        filename = os.path.basename(args.document)
+        collection_name = sanitize_collection_name(os.path.splitext(filename)[0])
+        vector_db = create_vector_db(chunks, collection_name)
+        vector_db_path = os.path.join(VECTOR_DB_DIR, collection_name)
+        update_user_info_json({collection_name: vector_db_path})
+        
+        print(json.dumps({
+            "status": "success",
+            "message": "Document processed successfully"
+        }))
+    
+    elif args.mode == "query":
+        if not args.question:
+            print(json.dumps({"error": "Question is required for query mode"}))
+            return
+        
+        # Load stored user info
+        user_info_str = load_user_info()
+        if not user_info_str:
+            print(json.dumps({"error": "No user information found"}))
+            return
+
+        # Get chat history if provided
+        chat_history = ""
+        if args.chat_history:
+            chat_history = format_chat_history(args.chat_history)
+
+        # Initialize LLM and get response
+        llm = ChatOllama(model=MODEL_NAME)
+        response = answer_query(llm, args.question, user_info_str, chat_history)
+        
+        print(json.dumps({"response": response}))
     
     elif args.mode == "update":
-        # Update mode: update the existing user_info.json via a new document or conversation.
-        current_info_str = load_user_info()
-        if not current_info_str:
+        # Load current user info
+        user_info_str = load_user_info()
+        if not user_info_str:
             logging.error("User info JSON is empty or missing. Run in 'ingest' mode first.")
+            print(json.dumps({"error": "No user information found"}))
             return
+            
         try:
-            current_info = json.loads(current_info_str)
+            current_info = json.loads(user_info_str)
         except Exception as e:
             logging.error(f"Error parsing user_info.json: {e}")
+            print(json.dumps({"error": f"Error parsing user info: {e}"}))
             return
+            
         llm = ChatOllama(model=MODEL_NAME)
-        update_method = input("Enter update type ('doc' for document, 'conv' for conversation): ").strip().lower()
-        if update_method == "doc":
-            # file_path = input("Enter the file path for the update document: ").strip()
-            # For simplicity, using DOC_PATH3 for the update document.
-            file_path = DOC_PATH3
+        
+        if args.document:
+            # Update via document
+            file_path = args.document
             current_info = update_user_info_from_doc(file_path, llm, current_info)
-        elif update_method == "conv":
-            text = input("Enter the conversation text update: ").strip()
+            print(json.dumps({
+                "status": "success",
+                "message": "User info updated from document",
+                "updated_info": current_info
+            }))
+        elif args.question:  # Repurpose question arg for conversation text in update mode
+            # Update via conversation text
+            text = args.question
             current_info = update_user_info_from_conversation(text, llm, current_info)
+            print(json.dumps({
+                "status": "success",
+                "message": "User info updated from conversation",
+                "updated_info": current_info
+            }))
         else:
-            print("Invalid update type.")
-            return
-        print("Updated user info:")
-        print(json.dumps(current_info, indent=4))
+            print(json.dumps({"error": "Document or question required for update mode"}))
 
 if __name__ == "__main__":
     main()
