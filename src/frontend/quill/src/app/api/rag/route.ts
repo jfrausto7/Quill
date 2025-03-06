@@ -61,6 +61,64 @@ async function runPythonScript(scriptPath: string, args: string[]) {
   }
 }
 
+/**
+ * Simple sentiment classifier to detect if a message is requesting an update to user information
+ * @param message The user's message
+ * @returns Boolean indicating if this is an update request
+ */
+function isUpdateRequest(message: string): boolean {
+  // convert to lowercase for easier matching
+  const lowerMessage = message.toLowerCase();
+  
+  // keywords and phrases that suggest the user wants to update their info
+  const updateKeywords = [
+    'update', 'change', 'modify', 'correct', 'fix', 'edit',
+    'wrong', 'incorrect', 'mistake', 'error', 'not right', 'is not',
+    'instead of', 'should be', 'actually', 'instead',
+    'my real', 'my actual', 'my correct', 'add', 'remove'
+  ];
+  
+  // information types that might be updated
+  const infoTypes = [
+    'name', 'address', 'phone', 'email', 'number', 'info', 'information',
+    'birth', 'date', 'ssn', 'social', 'id', 'identifier', 'password',
+    'contact', 'details', 'data', 'profile', 'record'
+  ];
+  
+  // check for direct update requests
+  for (const keyword of updateKeywords) {
+    if (lowerMessage.includes(keyword)) {
+      for (const infoType of infoTypes) {
+        if (lowerMessage.includes(infoType)) {
+          return true;
+        }
+      }
+      
+      // Even without specific info type, these strongly suggest updates
+      if (keyword === 'update' || 
+          keyword === 'change' || 
+          keyword === 'modify' || 
+          keyword === 'fix' || 
+          keyword === 'correct') {
+        return true;
+      }
+    }
+  }
+  
+  // Check for correction patterns
+  if (lowerMessage.includes('not') && lowerMessage.includes('but')) {
+    return true;
+  }
+  
+  if (lowerMessage.includes('it\'s') || lowerMessage.includes('its') || 
+      lowerMessage.includes('should be') || lowerMessage.includes('is actually')) {
+    return true;
+  }
+  
+  // Default to false - assume query if no update indicators found
+  return false;
+}
+
 export async function POST(request: Request) {
   try {
     console.log('Starting POST request processing');
@@ -68,7 +126,7 @@ export async function POST(request: Request) {
     const mode = formData.get('mode');
     console.log('Request mode:', mode);
 
-    const ragScriptPath = path.join('..', '..', 'rag_v2', 'quill_rag_v2.py');
+    const ragScriptPath = path.join('..', '..', 'rag_v3', 'quill_rag_v3.py');
     const writePdfScriptPath = path.join('..', '..', 'document_creation', 'write_pdf.py');
     
     try {
@@ -108,23 +166,38 @@ export async function POST(request: Request) {
       }
     } 
     else if (mode === 'query') {
-      const message = formData.get('message');
-      const documentName = formData.get('documentName');
-      const chatHistory = formData.get('chatHistory');
+      const message = formData.get('message') as string;
+      const documentName = formData.get('documentName') as string;
+      const chatHistory = formData.get('chatHistory') as string;
 
       if (!message || !documentName) {
         return NextResponse.json({ 
           error: 'Message and document name are required' 
         }, { status: 400 });
       }
-
-      const documentPath = path.join('..', '..', 'uploads', documentName as string);
       
-      const args = ['--mode', 'query', '--document', documentPath, '--question', message as string];
+      // Determine if this is an update request or a regular query
+      const isUpdate = isUpdateRequest(message);
+      const scriptMode = isUpdate ? 'update' : 'query';
+      console.log(`Message classified as ${scriptMode} request:`, message);
       
+      // Set up the base arguments
+      const args = [
+        '--mode', scriptMode
+      ];
+      
+      if (scriptMode === 'query') {
+        // For query mode, we need the document
+        args.push('--document', path.join('..', '..', 'uploads', documentName));
+      }
+      
+      // Both modes need the question/message
+      args.push('--question', message);
+      
+      // Add chat history for context if available
       if (chatHistory) {
         const tempChatHistoryPath = path.join('..', '..', 'uploads', 'temp_chat_history.json');
-        await writeFile(tempChatHistoryPath, chatHistory as string);
+        await writeFile(tempChatHistoryPath, chatHistory);
         args.push('--chat-history', tempChatHistoryPath);
       }
 
@@ -132,9 +205,25 @@ export async function POST(request: Request) {
 
       try {
         const result = JSON.parse(stdout);
-        return NextResponse.json({ content: result.response });
+        if (scriptMode === 'update') {
+          return NextResponse.json({
+            content: `I've updated your information. ${result.message || ''}`,
+            wasUpdate: true,
+            ...result
+          });
+        } else {
+          return NextResponse.json({ content: result.response });
+        }
       } catch {
-        return NextResponse.json({ content: stdout.trim() });
+        if (scriptMode === 'update') {
+          return NextResponse.json({ 
+            content: 'I\'ve updated your information based on your message.',
+            wasUpdate: true,
+            details: stdout
+          });
+        } else {
+          return NextResponse.json({ content: stdout.trim() });
+        }
       }
     } 
     else if (mode === 'blank') {
@@ -162,6 +251,7 @@ export async function POST(request: Request) {
         ['--mode', 'query', '--document', filePath, '--question', questionPrompt]);
 
       const jsonString = fields.stdout;
+      console.log('JSON string:', jsonString);
       const { stdout } = await runPythonScript(
         writePdfScriptPath,
         [filePath, jsonString]

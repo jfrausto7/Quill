@@ -228,33 +228,125 @@ def create_chain(new_form, llm, user_info="", uploaded=None):
         return response.content.strip()
     return chain_invoke
 
-### New merging functions with LLM assistance ###
 def merge_user_info(current_info: dict, new_info: dict, llm) -> dict:
     """
-    Merge new_info into current_info using an LLM to decide if two fields are equivalent.
-    For each new field, for each existing field, the LLM is asked whether they refer to the same information.
-    The prompt now includes examples (e.g., 'phone' and 'mobile') to increase the chance of correct matching.
-    If yes, update the existing field; otherwise, add the new field.
+    Merge new_info into current_info with improved field matching.
     """
     merged = current_info.copy()
+    
     for new_key, new_value in new_info.items():
-        found = False
-        for cur_key, cur_value in merged.items():
-            prompt = (
-                "You are an expert in data field comparison. Determine if the following two field names "
-                "refer to the same piece of information based on their field names and values. "
-                "Note that synonyms like 'cell phone' and 'mobile number' usually refer to the same information.\n"
-                f"Field 1: '{cur_key}' with value '{cur_value}'\n"
-                f"Field 2: '{new_key}' with value '{new_value}'\n"
-                "Answer with 'yes' or 'no' only."
-            )
-            response = llm.invoke(input=prompt).content.strip().lower()
-            if response.startswith("yes"):
-                merged[cur_key] = new_value  # Update the existing field.
-                found = True
+        # Normalize the key - split into words for better matching
+        new_key_words = re.findall(r'\b\w+\b', new_key.lower())
+        
+        # First look for exact key matches
+        exact_match = False
+        for cur_key in list(merged.keys()):
+            if cur_key.lower() == new_key.lower():
+                merged[cur_key] = new_value
+                exact_match = True
+                logging.info(f"Updated exact match field '{cur_key}' with '{new_value}'")
                 break
-        if not found:
-            merged[new_key] = new_value  # Add as a new field.
+        
+        if exact_match:
+            continue
+        
+        # Define specific field types with primary and secondary identifiers
+        field_categories = {
+            'email': {
+                'primary': ['email', 'e-mail', 'mail'],
+                'secondary': ['address']
+            },
+            'address': {
+                'primary': ['address', 'residence', 'location'],
+                'secondary': ['street', 'ave', 'road', 'apartment', 'apt', 'home']
+            },
+            'phone': {
+                'primary': ['phone', 'telephone', 'mobile', 'cell'],
+                'secondary': ['number']
+            },
+            'name': {
+                'primary': ['name'],
+                'secondary': ['first', 'last', 'full', 'user']
+            }
+        }
+        
+        # Find the category of the new key
+        new_key_category = None
+        for category, identifiers in field_categories.items():
+            # Check for primary identifiers (strong match)
+            for word in identifiers['primary']:
+                if word in new_key_words:
+                    new_key_category = category
+                    break
+            
+            # If no primary match and category still None, try secondary with additional checks
+            if new_key_category is None:
+                for word in identifiers['secondary']:
+                    if word in new_key_words:
+                        # For secondary matches, require additional context
+                        # e.g., "address" is secondary for email, but should only match if "email" is also present
+                        if category == 'email' and any(w in new_key_words for w in ['email', 'mail', 'e-mail']):
+                            new_key_category = category
+                            break
+                        elif category == 'phone' and 'number' in new_key_words:
+                            new_key_category = category
+                            break
+                        elif category == 'address' and not any(w in new_key_words for w in ['email', 'mail']):
+                            new_key_category = category
+                            break
+                        elif category == 'name' and any(w in new_key_words for w in ['user', 'first', 'last']):
+                            new_key_category = category
+                            break
+            
+            if new_key_category:
+                break
+        
+        # If we found a category, look for matching keys
+        found_match = False
+        if new_key_category:
+            logging.info(f"Identified '{new_key}' as belonging to category: {new_key_category}")
+            
+            # Look for keys in the same category
+            for cur_key in list(merged.keys()):
+                cur_key_words = re.findall(r'\b\w+\b', cur_key.lower())
+                
+                # Check if current key matches the same category
+                for word in field_categories[new_key_category]['primary']:
+                    if word in cur_key_words:
+                        merged[cur_key] = new_value
+                        found_match = True
+                        logging.info(f"Category match: Updated '{cur_key}' with value from '{new_key}'")
+                        break
+                
+                if found_match:
+                    break
+        
+        # If still no match, use LLM verification as final attempt
+        if not found_match:
+            for cur_key in list(merged.keys()):
+                # Skip vector_db and other system keys
+                if cur_key.endswith('_db') or 'vector' in cur_key.lower():
+                    continue
+                
+                prompt = (
+                    "You are an expert in data field comparison. Determine if the following two field names "
+                    "refer to the same piece of information:\n"
+                    f"Field 1: '{cur_key}'\n"
+                    f"Field 2: '{new_key}'\n"
+                    "Only answer with 'yes' or 'no'."
+                )
+                response = llm.invoke(input=prompt).content.strip().lower()
+                if response.startswith("yes"):
+                    merged[cur_key] = new_value
+                    found_match = True
+                    logging.info(f"LLM verified: Updated '{cur_key}' with value from '{new_key}'")
+                    break
+        
+        # If no match found after all checks, add as new field
+        if not found_match:
+            merged[new_key] = new_value
+            logging.info(f"Added new field '{new_key}' with value '{new_value}'")
+    
     return merged
 
 def update_user_info_from_doc(file_path, llm, current_info: dict):
@@ -462,16 +554,19 @@ def main():
             current_info = update_user_info_from_doc(file_path, llm, current_info)
             print(json.dumps({
                 "status": "success",
-                "message": "User info updated from document",
+                "message": "Your info has been updated from your document.",
                 "updated_info": current_info
             }))
         elif args.question:  # Repurpose question arg for conversation text in update mode
             # Update via conversation text
             text = args.question
+            print("CHECK INFO")
+            print(text)
+            print(current_info)
             current_info = update_user_info_from_conversation(text, llm, current_info)
             print(json.dumps({
                 "status": "success",
-                "message": "User info updated from conversation",
+                "message": "Your info has been updated from our conversation.",
                 "updated_info": current_info
             }))
         else:
