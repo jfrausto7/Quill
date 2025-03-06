@@ -1,0 +1,20 @@
+Notes for Further Development:
+
+- Due to the nature of the current implementation, the code may falsely identify fields
+in paragraphs of text. For instance, if "Employer" is a field, and at the end of the form
+there is a block of legal text stating "...the Employer is not liable for any...", the code
+will try to place the value for 'Employer' in that paragraph.
+
+- There are also sometimes issues with the OCR picking up all the words, especially when
+the chosen photo is not of great quality. Perhaps should experiment with more advanced
+OCRs/AI integrations. (Gemini Flash 2.0?)
+
+- No current methods for completing checkboxes or formatting dates correctly.
+
+- Undefined behavior occurs when there is a field which overlaps with the words of another
+field. For instance, the code may incorrectly place an answer for "Address" under "Email Address"
+
+- Not enough intelligence to differentiate different fields which have the same labels. For instance,
+"Phone Number" under "Applicant Name" vs. "Phone Number" next to "Emergency Contact". Perhaps should
+consider a nested structure for certain information? Alternatively, using a more intelligent system
+for OCR could help.

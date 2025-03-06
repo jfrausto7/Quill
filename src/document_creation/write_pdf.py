@@ -133,8 +133,11 @@ def main():
     output_path = form_path[0:form_path.rfind('.')] + "_filled.pdf"
 
     for img_path in image_paths:
-        label_coords = find_label_coords(img_path, list(json_string.keys()))
-        page = populate_form(json_string, label_coords, img_path)
+        lost_keys, label_coords = find_label_coords(img_path, list(json_string.keys()))
+        fields = json_string.copy()
+        for key in lost_keys:
+            del fields[key]
+        page = populate_form(fields, label_coords, img_path)
         output.append(page)
 
     if len(output) > 1: # if there are multiple pages, combine them as one pdf

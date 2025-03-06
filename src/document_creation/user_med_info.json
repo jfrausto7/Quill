@@ -1,0 +1,19 @@
+{
+    "FIRST NAME":"Jane",
+    "LAST NAME":"Stanford",
+    "DATE OF BIRTH":"1/1/1971",
+    "SEX":"Female",
+    "SOCIAL SECURITY":"012-34-5678",
+    "PHONE NUMBER ":"111-111-1111",
+    "EMAIL ADDRESS":"jane@stanford.edu",
+    "ADDRESS":"450 Jane Stanford Way",
+    "CITY":"Palo Alto",
+    "STATE":"CA",
+    "ZIP CODE":"94305",
+    "MARITAL STATUS":"Married",
+    "SPOUSES NAME":"Leland Stanford",
+    "SPOUSE PHONE NUMBER":"222-222-2222",
+    "EMERGENCY CONTACT":"Leland Jr.",
+    "RELATIONSHIP":"Son",
+    "PHONE NUMBER":"333-333-3333"
+}
