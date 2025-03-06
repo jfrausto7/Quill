@@ -12,27 +12,28 @@ def find_label_coords(img_path, phrases):
     data = pytesseract.image_to_data(img_path, output_type=pytesseract.Output.DICT)
     words = data["text"]
     coords = {}
+    lost_keys = []
 
     num_found = 0 
-    for phrase in phrases:  
+    for raw_phrase in phrases:  
         found = False
-        phrase = phrase.replace("'", "’")
+        phrase = raw_phrase.replace("'", "’") # sometimes apostrophes trip up the OCR
         phrase_words = phrase.split()
         phrase_length = len(phrase_words)
         for i in range(len(words) - phrase_length + 1):
             # Check if the consecutive words match the phrase
             if words[i:i + phrase_length] == phrase_words:
                 x, y = data["left"][i], data["top"][i] + data["height"][i]
-                
                 logging.info(f"Found '{phrase}' at: x1={x}, y1={y}")
                 coords[phrase] = (x, y)
                 num_found += 1
                 found = True
         if not found:
             logging.info(f"Unable to find '{phrase}'")
+            lost_keys.append(raw_phrase)
     print(f"Found {num_found} out of {len(phrases)} fields")
 
-    return coords
+    return lost_keys, coords
 
 def main():
     image_path = "W-2.png"
