@@ -560,9 +560,6 @@ def main():
         elif args.question:  # Repurpose question arg for conversation text in update mode
             # Update via conversation text
             text = args.question
-            print("CHECK INFO")
-            print(text)
-            print(current_info)
             current_info = update_user_info_from_conversation(text, llm, current_info)
             print(json.dumps({
                 "status": "success",

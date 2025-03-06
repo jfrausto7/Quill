@@ -229,34 +229,51 @@ export async function POST(request: Request) {
     else if (mode === 'blank') {
       const file = formData.get('file') as File;
       // const jsonString = formData.get('jsonString') as string;
-
+    
       console.log('Processing blank form:', file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = await saveUploadedFile(buffer, file.name);
-
+    
       const sample_json = '{ "Employee social security number": "000-11-2222", \
       "Employer identification number": "999-888-777", \
       "Wages, tips, other compensation": "64000" }'
-
-      const questionPrompt = `You are a helpful, form-filling assistant. The user will provide you with an 
-          image of a blank or partially-filled form. For each field, your task is to generate
-           the answer to the question, 'What is the value of the field?' and add the field label
-           and its answer as a key-value pair to a .JSON file. If the answer to the field is
-           not already in the form, check if you can find the answer in the chat history.
-           ONLY output your answer as a .JSON file with NO ADDITIONAL TEXT. For example,
-           your output should be of the exact format: ${sample_json}`;
-
+    
+      const questionPrompt = `You are a helpful, form-filling assistant. The user will provide you with an image of a blank or partially-filled form. For each field, your task is to generate the answer to the question, 'What is the value of the field?' and add the field label and its answer as a key-value pair to a .JSON file. If the answer to the field is not already in the form, check if you can find the answer in the chat history. Here is an example response: ${sample_json} ONLY RESPOND WITH THE OUTPUT OF A .JSON FILE WITH NO ADDITIONAL TEXT`;
+    
       const fields = await runPythonScript(
         ragScriptPath,
         ['--mode', 'query', '--document', filePath, '--question', questionPrompt]);
-
-      const jsonString = fields.stdout;
-      console.log('JSON string:', jsonString);
+    
+      let jsonString = fields.stdout;
+      console.log('Raw JSON string:', jsonString);
+      
+      // Parse the JSON string if it's in the {"response": "..."} format
+      try {
+        const parsedOutput = JSON.parse(jsonString);
+        if (parsedOutput.response) {
+          // Extract the inner JSON string
+          jsonString = parsedOutput.response;
+          
+          // If the inner string is escaped JSON, parse it again to clean it up
+          try {
+            const innerJson = JSON.parse(jsonString);
+            jsonString = JSON.stringify(innerJson);
+          } catch (e) {
+            // If we can't parse it as JSON, just use it as is
+            console.log('Using response string directly');
+          }
+        }
+      } catch (e) {
+        console.log('Output is not in {"response": "..."} format, using as is');
+      }
+      
+      console.log('Processed JSON string:', jsonString);
+      
       const { stdout } = await runPythonScript(
         writePdfScriptPath,
         [filePath, jsonString]
       );
-
+    
       try {
         const result = JSON.parse(stdout);
         return NextResponse.json(result);
