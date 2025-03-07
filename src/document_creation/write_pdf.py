@@ -1,7 +1,6 @@
 import os
 import logging
 import sys
-import numpy as np
 from openai import OpenAI
 import json
 import base64
@@ -18,6 +17,9 @@ SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", \
                 "Wages, tips, other compensation": "64000" }'
 
 MODEL_NAME = "gpt-4o-mini" # configure API key by running: `export OPENAI_API_KEY="your_api_key_here"`
+
+# Vertical padding to adjust text placement (negative value moves text down)
+Y_PADDING = 20
 
 SYSTEM_PROMPT = f"""You are a helpful, form-filling assistant. The user will provide you with an 
 image of a form, as well as a list of fields that need to be filled in along with their label 
@@ -72,7 +74,17 @@ def overlay_text(img_path, text_list, coordinates_list,
     font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
     
     for text, (x, y) in zip(text_list, coordinates_list):
-        draw.text((x, y), text, fill="black", font=font)
+        # Convert dictionaries or other non-string types to string
+        if isinstance(text, dict):
+            # Format the dictionary as a string, e.g., "Readdle, 795 Folsom Street, 94107"
+            formatted_text = ", ".join([str(v) for v in text.values()])
+            text = formatted_text
+        elif not isinstance(text, (str, bytes)):
+            text = str(text)
+            
+        # Apply Y_PADDING to move text down
+        adjusted_y = y + Y_PADDING
+        draw.text((x, adjusted_y), text, fill="black", font=font)
     
     return image
 
@@ -150,10 +162,9 @@ def main():
     for img_path in image_paths:
         lost_keys, label_coords = find_label_coords(img_path, list(json_string.keys()))
         fields = json_string.copy()
-        print("LOST KEYS", lost_keys)
-        print("FIELDS", fields)
         for key in lost_keys:
-            del fields[key]
+            if key in fields:
+                del fields[key]
         page = populate_form(fields, label_coords, img_path)
         output.append(page)
 
