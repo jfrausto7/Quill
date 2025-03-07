@@ -15,6 +15,9 @@ from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain.prompts import PromptTemplate
 import ollama
+from PIL import Image
+
+Image.MAX_IMAGE_PIXELS = None  # Disable image size limit
 
 logging.basicConfig(level=logging.INFO)
 
