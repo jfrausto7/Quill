@@ -51,6 +51,15 @@ const ChatView = ({ onBack, messages, onMessagesUpdate }: ChatViewProps) => {
     }
   };
 
+  // Handler for agent responses (used for automatic messages from the agent)
+  const handleAgentResponse = (messageText: string) => {
+    // Add an agent message without sending a request
+    onMessagesUpdate([
+      ...messages,
+      { type: 'bot', content: messageText }
+    ]);
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       <div className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
@@ -66,7 +75,11 @@ const ChatView = ({ onBack, messages, onMessagesUpdate }: ChatViewProps) => {
 
       <div className="flex flex-col flex-1 min-h-0">
         <ChatMessages messages={messages} isLoading={isLoading} />
-        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+        <ChatInput 
+          onSendMessage={handleSendMessage} 
+          isLoading={isLoading} 
+          onAgentResponse={handleAgentResponse}
+        />
       </div>
     </div>
   );

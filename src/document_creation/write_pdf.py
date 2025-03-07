@@ -1,7 +1,6 @@
 import os
 import logging
 import sys
-import numpy as np
 from openai import OpenAI
 import json
 import base64
@@ -18,6 +17,9 @@ SAMPLE_JSON = '{ "Employee social security number": "000-11-2222", \
                 "Wages, tips, other compensation": "64000" }'
 
 MODEL_NAME = "gpt-4o-mini" # configure API key by running: `export OPENAI_API_KEY="your_api_key_here"`
+
+# Vertical padding to adjust text placement (negative value moves text down)
+Y_PADDING = 20
 
 SYSTEM_PROMPT = f"""You are a helpful, form-filling assistant. The user will provide you with an 
 image of a form, as well as a list of fields that need to be filled in along with their label 
@@ -48,9 +50,14 @@ def process_image_path(form_path):
     if ext in [".png", ".jpg", ".jpeg"]:
         image_paths.append(form_path)
     elif ext == ".pdf":
+        # Create tmp directory if it doesn't exist
+        tmp_dir = './tmp'
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+            
         pages = convert_from_path(form_path, 500)
         for count, page in enumerate(pages):
-            pagename = f'tmp/page{count}.png'
+            pagename = f'{tmp_dir}/page{count}.png'
             page.save(pagename, 'PNG')
             image_paths.append(pagename)
     else:
@@ -67,7 +74,17 @@ def overlay_text(img_path, text_list, coordinates_list,
     font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
     
     for text, (x, y) in zip(text_list, coordinates_list):
-        draw.text((x, y), text, fill="black", font=font)
+        # Convert dictionaries or other non-string types to string
+        if isinstance(text, dict):
+            # Format the dictionary as a string, e.g., "Readdle, 795 Folsom Street, 94107"
+            formatted_text = ", ".join([str(v) for v in text.values()])
+            text = formatted_text
+        elif not isinstance(text, (str, bytes)):
+            text = str(text)
+            
+        # Apply Y_PADDING to move text down
+        adjusted_y = y + Y_PADDING
+        draw.text((x, adjusted_y), text, fill="black", font=font)
     
     return image
 
@@ -121,22 +138,33 @@ def main():
         return None
 
     # json with all form fields and answers
-    json_path = args[1]
-    if not os.path.exists(json_path):
-        logging.error(f"File not found at path: {json_path}")
-        return
-    with open(json_path) as file:
-        json_string = json.load(file)
-        file.close()
+    try:
+        # Try to parse the JSON string directly
+        json_string = json.loads(args[1])
+    except (json.JSONDecodeError, TypeError):
+        # If direct parsing fails, check if it's a file path
+        json_path = args[1]
+        if os.path.exists(json_path):
+            with open(json_path) as file:
+                json_string = json.load(file)
+        else:
+            logging.error(f"Could not parse JSON or find file at path: {json_path}")
+            return
 
     output = []
     output_path = form_path[0:form_path.rfind('.')] + "_filled.pdf"
+
+    # Make sure tmp directory exists for cleanup at the end
+    tmp_dir = './tmp'
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
 
     for img_path in image_paths:
         lost_keys, label_coords = find_label_coords(img_path, list(json_string.keys()))
         fields = json_string.copy()
         for key in lost_keys:
-            del fields[key]
+            if key in fields:
+                del fields[key]
         page = populate_form(fields, label_coords, img_path)
         output.append(page)
 
@@ -145,8 +173,13 @@ def main():
     else:
         output[0].save(output_path)
 
-    for file in os.listdir("./tmp"):
-        os.remove("./tmp/" + file)
+    # Check if tmp directory exists before attempting to clean it
+    if os.path.exists("tmp"):
+        for file in os.listdir("tmp"):
+            try:
+                os.remove(os.path.join("tmp", file))
+            except Exception as e:
+                logging.error(f"Failed to remove temporary file: {e}")
 
 if __name__ == "__main__":
     main()
