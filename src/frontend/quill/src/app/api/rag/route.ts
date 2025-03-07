@@ -269,18 +269,31 @@ export async function POST(request: Request) {
       
       console.log('Processed JSON string:', jsonString);
       
+      // Create a temporary JSON file for the filled form data
+      const jsonFilePath = path.join('..', '..', 'uploads', 'temp_form_data.json');
+      await fs.writeFile(jsonFilePath, jsonString);
+      
       const { stdout } = await runPythonScript(
         writePdfScriptPath,
-        [filePath, jsonString]
+        [filePath, jsonFilePath]
       );
     
+      // Get the filled PDF path - it should be the same as original but with "_filled.pdf" suffix
+      const outputPath = filePath.replace(/\.[^/.]+$/, '') + '_filled.pdf';
+      console.log('Filled form saved at:', outputPath);
+      
       try {
         const result = JSON.parse(stdout);
-        return NextResponse.json(result);
+        return NextResponse.json({
+          message: 'Blank form processed successfully',
+          details: stdout,
+          filledFormPath: outputPath
+        });
       } catch {
         return NextResponse.json({ 
           message: 'Blank form processed successfully',
-          details: stdout 
+          details: stdout,
+          filledFormPath: outputPath
         });
       }
     }

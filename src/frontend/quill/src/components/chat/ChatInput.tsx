@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, ClipboardEdit } from 'lucide-react';
 import { useDocuments } from '@/hooks/useDocuments';
 import UploadModal from './UploadModal';
+import FormPreviewModal from './FormPreviewModal';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -19,6 +20,8 @@ const ChatInput = ({ onSendMessage, isLoading = false, onAgentResponse, onSilent
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [showTooltip1, setShowTooltip1] = useState(false);
   const [showTooltip2, setShowTooltip2] = useState(false);
+  const [showFormPreview, setShowFormPreview] = useState(false);
+  const [formFilePath, setFormFilePath] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const blankFileInputRef = useRef<HTMLInputElement>(null);
   const { addDocument } = useDocuments();
@@ -140,8 +143,26 @@ const ChatInput = ({ onSendMessage, isLoading = false, onAgentResponse, onSilent
 
       setUploadStatus('success');
       
-      // For normal document uploads (not blank forms)
-      if (!isBlank) {
+      if (isBlank) {
+        // For blank forms - show the preview after processing
+        // Get the response data which should contain the filled form path
+        if (responseData.filledFormPath) {
+          // Use the path directly from the response
+          setFormFilePath(responseData.filledFormPath);
+        } else {
+          // Fallback to constructing the path if it's not returned
+          const fileNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+          const filledFormPath = file.name.split('.').slice(0, -1).join('.') + '_filled.pdf';
+          setFormFilePath(filledFormPath);
+        }
+        
+        // Show preview after a short delay to ensure upload modal is seen
+        setTimeout(() => {
+          setUploadStatus('idle'); // Close upload modal
+          setShowFormPreview(true); // Show the form preview
+        }, 1500);
+      } else {
+        // For normal document uploads (not blank forms)
         // Use the silent upload handler if available
         if (onSilentUpload) {
           onSilentUpload(file.name);
@@ -196,6 +217,15 @@ const ChatInput = ({ onSendMessage, isLoading = false, onAgentResponse, onSilent
     setUploadStatus('idle');
   };
 
+  const closeFormPreview = () => {
+    setShowFormPreview(false);
+    
+    // Optionally add a message from the assistant about the form
+    if (onAgentResponse) {
+      onAgentResponse(`I've filled out the form based on the information extracted from your documents. You can download the completed form or upload another document if needed.`);
+    }
+  };
+
   return (
     <>
       <UploadModal
@@ -206,6 +236,14 @@ const ChatInput = ({ onSendMessage, isLoading = false, onAgentResponse, onSilent
         errorMessage={uploadError}
         onClose={closeModal}
       />
+      
+      <FormPreviewModal
+        isOpen={showFormPreview}
+        filePath={formFilePath}
+        fileName={uploadedFileName ? uploadedFileName.replace(/\.[^/.]+$/, '') + '_filled.pdf' : undefined}
+        onClose={closeFormPreview}
+      />
+      
       <div className="shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <form onSubmit={handleSubmit} className="p-4">
           <div className="flex items-center space-x-2">
