@@ -69,5 +69,5 @@ Sprint #3:
 - Daniel: Upgraded RAG to process various document types (PDF, Word, Images, and CSV) with persistent storage and vector database referencing for uploads; worked on slides and demo
 - Dante: Wrote two scripts: write_pdf.py and find_source_coords.py, which leverage LLM calls (GPT4o-mini) and OCR (Google Tesseract) to handle the final workflow task of finalized form creation. Worked on slides and demo.
 - Jacob: Experimented w/ local LLM memory optimization. Improved UI features based on feedback.
-- Ismael:
-- Neil:
+- Ismael: Pushed two methods that extract form fields from web-based forms: 1. Puppeteer (onlineForms_Puppeteer) 2. Prompt engineering w/ o3-mini (onlineForms_llm).
+- Neil: Finalized user survey form, and collected and analyzed results.  Developed "coming soon" website with waiting list feature; project management; provided input on workflow and demo; mentored on slides and presentation.
