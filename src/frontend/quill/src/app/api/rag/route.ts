@@ -126,7 +126,7 @@ export async function POST(request: Request) {
     const mode = formData.get('mode');
     console.log('Request mode:', mode);
 
-    const ragScriptPath = path.join('..', '..', 'rag_v3', 'quill_rag_v3.py');
+    const ragScriptPath = path.join('..', '..', 'rag_v4', 'quill_rag_v4.py');
     const writePdfScriptPath = path.join('..', '..', 'document_creation', 'write_pdf.py');
     
     try {
