@@ -333,23 +333,31 @@ def create_chain(new_form, llm, user_info="", uploaded=None):
         uploaded = []
         
     template = (
-        "You are Quill, an expert form-filling assistant. Your task is to accurately complete a new form using information from multiple sources.\n\n"
+        "You are Quill, an expert form-filling assistant. Your task is to generate a FLAT JSON object where keys EXACTLY match the form field names and values are accurately derived from stored user information.\n\n"
         "FORM TO COMPLETE:\n{new_form_context}\n\n"
-        "AVAILABLE USER INFORMATION:\n"
-        "1. PREVIOUSLY UPLOADED FORMS: {uploaded_forms_context}\n"
-        "2. USER PROFILE DATA: {user_info}\n\n"
+        "USER PROFILE DATA:\n{user_info}\n\n"
         "INSTRUCTIONS:\n"
-        "- Answer the question below by finding the most accurate and relevant information\n"
-        "- When filling form fields, use EXACT information from the user profile when available\n"
-        "- If information appears in multiple sources, prioritize in this order: User Profile > Most Recent Form > Older Forms\n"
-        "- For conflicting information, choose the most recent or most complete version\n"
-        "- If information is unavailable, clearly state this rather than guessing\n"
-        "- For dates, follow the format specified in the new form\n"
-        "- For addresses, include all available components (street, city, state, ZIP)\n"
-        "- For financial information, ensure accuracy of all numbers and preserve decimal places\n"
-        "- Respond directly with the requested information without explanations unless asked\n\n"
+        "1. FIELD EXTRACTION:\n"
+        "   - Extract ALL field names from the form using their EXACT naming (preserve case, spacing, and special characters)\n"
+        "   - Include all fields in your JSON output, even if some values are missing\n"
+        "   - NO NESTED JSON STRUCTURES - output must be a single-level, flat JSON object\n"
+        "   - If form has fields that appear hierarchical (e.g., 'address.street'), maintain them as flat keys\n\n"
+        "2. VALUE DETERMINATION:\n"
+        "   - For each field, find the most relevant information from user profile data\n"
+        "   - If information is unavailable, set value to '' (don't guess or omit the field)\n\n"
+        "3. DATA FORMATTING:\n"
+        "   - Dates: Match exactly the format specified in the form (MM/DD/YYYY, YYYY-MM-DD, etc.)\n"
+        "   - Addresses: Format as single strings with appropriate separators as required by the form\n"
+        "   - Phone numbers: Apply correct formatting with appropriate separators\n"
+        "   - Financial values: Preserve exact decimal places and currency formatting\n"
+        "   - Boolean values: Use true/false unless form specifies other values\n\n"
+        "4. OUTPUT REQUIREMENTS:\n"
+        "   - Generate valid, properly formatted FLAT JSON with no nested objects or arrays\n"
+        "   - Ensure all field names in your output EXACTLY match those in the form\n"
+        "   - Do not include any explanatory text before or after the JSON object\n"
+        "   - Verify the JSON has no nested structures and is properly formatted\n\n"
         "QUESTION: {question}\n\n"
-        "ANSWER:"
+        "ANSWER (FLAT JSON ONLY):"
     )
     
     def chain_invoke(question: str) -> str:
@@ -357,25 +365,25 @@ def create_chain(new_form, llm, user_info="", uploaded=None):
             return "Please provide a question about the form."
             
         try:
-            new_form_docs = new_form.get_relevant_documents(question)
+            new_form_docs = new_form
             new_form_context = "\n".join(doc.page_content for doc in new_form_docs) if new_form_docs else ""
             
-            uploaded_contexts = []
-            for r in uploaded:
-                if r:
-                    try:
-                        docs = r.get_relevant_documents(question)
-                        if docs:
-                            context_str = "\n".join(doc.page_content for doc in docs)
-                            uploaded_contexts.append(context_str)
-                    except Exception as e:
-                        logging.warning(f"Error getting relevant documents: {e}")
+            # uploaded_contexts = []
+            # for r in uploaded:
+            #     if r:
+            #         try:
+            #             docs = r.get_relevant_documents(question)
+            #             if docs:
+            #                 context_str = "\n".join(doc.page_content for doc in docs)
+            #                 uploaded_contexts.append(context_str)
+            #         except Exception as e:
+            #             logging.warning(f"Error getting relevant documents: {e}")
             
-            uploaded_forms_context = "\n".join(uploaded_contexts)
+            # uploaded_forms_context = "\n".join(uploaded_contexts)
             
             prompt_text = template.format(
                 new_form_context=new_form_context,
-                uploaded_forms_context=uploaded_forms_context,
+                # uploaded_forms_context=uploaded_forms_context,
                 user_info=user_info,
                 question=question
             )
