@@ -19,8 +19,8 @@ from pdf2image import convert_from_path
 logging.basicConfig(level=logging.INFO)
 
 # Constants
-DOC_PATH1 = "filled_w2.pdf"   # For ingest mode (can be any supported file)
-DOC_PATH2 = "medical_empty.pdf"     # For query mode (new form to be processed)
+DOC_PATH1 = "Demo_Input_Form_filled.pdf"   # For ingest mode (can be any supported file)
+DOC_PATH2 = "Demo_Input_Form.pdf"     # For query mode (new form to be processed)
 DOC_PATH3 = "update_info.png"     # For update mode (update user_info.json via a document)
 VECTOR_DB_DIR = "vector_db"
 MODEL_NAME = "llama3.2-vision:11b"
@@ -233,32 +233,40 @@ def create_chain(new_form, llm, user_info="", uploaded=None):
     if uploaded is None:
         uploaded = []
     template = (
-        "You are Quill, an expert form-filling assistant. Your task is to accurately complete a new form using information from multiple sources.\n\n"
+        "You are Quill, an expert form-filling assistant. Your task is to generate a FLAT JSON object where keys EXACTLY match the form field names and values are accurately derived from stored user information.\n\n"
         "FORM TO COMPLETE:\n{new_form_context}\n\n"
-        "AVAILABLE USER INFORMATION:\n"
-        "1. PREVIOUSLY UPLOADED FORMS: {uploaded_forms_context}\n"
-        "2. USER PROFILE DATA: {user_info}\n\n"
+        "USER PROFILE DATA:\n{user_info}\n\n"
         "INSTRUCTIONS:\n"
-        "- Answer the question below by finding the most accurate and relevant information\n"
-        "- When filling form fields, use EXACT information from the user profile when available\n"
-        "- If information appears in multiple sources, prioritize in this order: User Profile > Most Recent Form > Older Forms\n"
-        "- For conflicting information, choose the most recent or most complete version\n"
-        "- If information is unavailable, clearly state this rather than guessing\n"
-        "- For dates, follow the format specified in the new form\n"
-        "- For addresses, include all available components (street, city, state, ZIP)\n"
-        "- For financial information, ensure accuracy of all numbers and preserve decimal places\n"
-        "- Respond directly with the requested information without explanations unless asked\n\n"
+        "1. FIELD EXTRACTION:\n"
+        "   - Extract ALL field names from the form using their EXACT naming (preserve case, spacing, and special characters)\n"
+        "   - Include all fields in your JSON output, even if some values are missing\n"
+        "   - NO NESTED JSON STRUCTURES - output must be a one-level, flat JSON object\n"
+        "   - If form has fields that appear hierarchical (e.g., 'address.street'), maintain them as flat keys\n\n"
+        "2. VALUE DETERMINATION:\n"
+        "   - For each field, find the most relevant information from user profile data\n"
+        "   - If information is unavailable, set value to '' (don't guess or omit the field)\n\n"
+        "3. DATA FORMATTING:\n"
+        "   - Dates: Match exactly the format specified in the form (MM/DD/YYYY, YYYY-MM-DD, etc.)\n"
+        "   - Addresses: Format as single strings with appropriate separators as required by the form\n"
+        "   - Phone numbers: Apply correct formatting with appropriate separators\n"
+        "   - Financial values: Preserve exact decimal places and currency formatting\n"
+        "   - Boolean values: Use true/false unless form specifies other values\n\n"
+        "4. OUTPUT REQUIREMENTS:\n"
+        "   - Generate valid, properly formatted FLAT JSON with no nested objects or arrays\n"
+        "   - Ensure all field names in your output EXACTLY match those in the form\n"
+        "   - Do not include any explanatory text before or after the JSON object\n"
+        "   - Verify the JSON has no nested structures and is properly formatted\n\n"
         "QUESTION: {question}\n\n"
-        "ANSWER:"
+        "ANSWER (DO NOT USE ANY NESTED STRUCTURE IN JSON. USE ONLY FLAT, ONE-LEVEL JSON.):"
     )
     def chain_invoke(question: str) -> str:
-        new_form_docs = new_form.get_relevant_documents(question)
+        new_form_docs = new_form
         new_form_context = "\n".join(doc.page_content for doc in new_form_docs)
-        uploaded_contexts = [r.get_relevant_documents(question) for r in uploaded]
-        uploaded_forms_context = "\n".join("\n".join(doc.page_content for doc in docs) for docs in uploaded_contexts)
+        # uploaded_contexts = [r.get_relevant_documents(question) for r in uploaded]
+        # uploaded_forms_context = "\n".join("\n".join(doc.page_content for doc in docs) for docs in uploaded_contexts)
         prompt_text = template.format(
             new_form_context=new_form_context,
-            uploaded_forms_context=uploaded_forms_context,
+            # uploaded_forms_context=uploaded_forms_context,
             user_info=user_info,
             question=question
         )
@@ -430,7 +438,7 @@ def main():
         new_form_vector_db = create_vector_db(chunks, new_form_collection)
         llm = ChatOllama(model=MODEL_NAME, temperature=0.3)
         new_form_retriever = create_retriever(new_form_vector_db)
-        chain = create_chain(new_form=new_form_retriever, llm=llm, user_info=user_info_str, uploaded=uploaded_forms)
+        chain = create_chain(new_form=data, llm=llm, user_info=user_info_str, uploaded=uploaded_forms)
         question = input("Enter your question: ")
         res = chain(question)
         print("Response:")
