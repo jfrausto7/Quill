@@ -333,23 +333,31 @@ def create_chain(new_form, llm, user_info="", uploaded=None):
         uploaded = []
         
     template = (
-        "You are Quill, an expert form-filling assistant. Your task is to accurately complete a new form using information from multiple sources.\n\n"
+        "You are Quill, an expert form-filling assistant. Your task is to generate a FLAT JSON object where keys EXACTLY match the form field names and values are accurately derived from stored user information.\n\n"
         "FORM TO COMPLETE:\n{new_form_context}\n\n"
-        "AVAILABLE USER INFORMATION:\n"
-        "1. PREVIOUSLY UPLOADED FORMS: {uploaded_forms_context}\n"
-        "2. USER PROFILE DATA: {user_info}\n\n"
+        "USER PROFILE DATA:\n{user_info}\n\n"
         "INSTRUCTIONS:\n"
-        "- Answer the question below by finding the most accurate and relevant information\n"
-        "- When filling form fields, use EXACT information from the user profile when available\n"
-        "- If information appears in multiple sources, prioritize in this order: User Profile > Most Recent Form > Older Forms\n"
-        "- For conflicting information, choose the most recent or most complete version\n"
-        "- If information is unavailable, clearly state this rather than guessing\n"
-        "- For dates, follow the format specified in the new form\n"
-        "- For addresses, include all available components (street, city, state, ZIP)\n"
-        "- For financial information, ensure accuracy of all numbers and preserve decimal places\n"
-        "- Respond directly with the requested information without explanations unless asked\n\n"
+        "1. FIELD EXTRACTION:\n"
+        "   - Extract ALL field names from the form using their EXACT naming (preserve case, spacing, and special characters)\n"
+        "   - Include all fields in your JSON output, even if some values are missing\n"
+        "   - NO NESTED JSON STRUCTURES - output must be a single-level, flat JSON object\n"
+        "   - If form has fields that appear hierarchical (e.g., 'address.street'), maintain them as flat keys\n\n"
+        "2. VALUE DETERMINATION:\n"
+        "   - For each field, find the most relevant information from user profile data\n"
+        "   - If information is unavailable, set value to '' (don't guess or omit the field)\n\n"
+        "3. DATA FORMATTING:\n"
+        "   - Dates: Match exactly the format specified in the form (MM/DD/YYYY, YYYY-MM-DD, etc.)\n"
+        "   - Addresses: Format as single strings with appropriate separators as required by the form\n"
+        "   - Phone numbers: Apply correct formatting with appropriate separators\n"
+        "   - Financial values: Preserve exact decimal places and currency formatting\n"
+        "   - Boolean values: Use true/false unless form specifies other values\n\n"
+        "4. OUTPUT REQUIREMENTS:\n"
+        "   - Generate valid, properly formatted FLAT JSON with no nested objects or arrays\n"
+        "   - Ensure all field names in your output EXACTLY match those in the form\n"
+        "   - Do not include any explanatory text before or after the JSON object\n"
+        "   - Verify the JSON has no nested structures and is properly formatted\n\n"
         "QUESTION: {question}\n\n"
-        "ANSWER:"
+        "ANSWER (FLAT JSON ONLY):"
     )
     
     def chain_invoke(question: str) -> str:
@@ -357,25 +365,25 @@ def create_chain(new_form, llm, user_info="", uploaded=None):
             return "Please provide a question about the form."
             
         try:
-            new_form_docs = new_form.get_relevant_documents(question)
+            new_form_docs = new_form
             new_form_context = "\n".join(doc.page_content for doc in new_form_docs) if new_form_docs else ""
             
-            uploaded_contexts = []
-            for r in uploaded:
-                if r:
-                    try:
-                        docs = r.get_relevant_documents(question)
-                        if docs:
-                            context_str = "\n".join(doc.page_content for doc in docs)
-                            uploaded_contexts.append(context_str)
-                    except Exception as e:
-                        logging.warning(f"Error getting relevant documents: {e}")
+            # uploaded_contexts = []
+            # for r in uploaded:
+            #     if r:
+            #         try:
+            #             docs = r.get_relevant_documents(question)
+            #             if docs:
+            #                 context_str = "\n".join(doc.page_content for doc in docs)
+            #                 uploaded_contexts.append(context_str)
+            #         except Exception as e:
+            #             logging.warning(f"Error getting relevant documents: {e}")
             
-            uploaded_forms_context = "\n".join(uploaded_contexts)
+            # uploaded_forms_context = "\n".join(uploaded_contexts)
             
             prompt_text = template.format(
                 new_form_context=new_form_context,
-                uploaded_forms_context=uploaded_forms_context,
+                # uploaded_forms_context=uploaded_forms_context,
                 user_info=user_info,
                 question=question
             )
@@ -563,7 +571,7 @@ def update_user_info_from_conversation(text, llm, current_info: dict):
     
     return merged
 
-def answer_query(llm, question, user_info="", chat_history=""):
+def answer_query(llm, question, user_info="", chat_history="", new_form=None):
     """
     Answer a query using stored data and vector DBs of uploaded forms.
     """
@@ -573,63 +581,41 @@ def answer_query(llm, question, user_info="", chat_history=""):
         logging.error(f"Error parsing user_info: {e}")
         return "Sorry, I couldn't process your request due to an error with user information."
     
-    # Check if we have any persisted vector DBs
-    uploaded_forms = []
-    for key, value in user_info_dict.items():
-        if isinstance(value, str) and value.startswith(VECTOR_DB_DIR) and os.path.exists(value) and os.path.isdir(value):
-            try:
-                retriever = create_retriever(
-                    Chroma(
-                        persist_directory=value,
-                        collection_name=sanitize_collection_name(key),
-                        embedding_function=OllamaEmbeddings(model=EMBEDDING_MODEL),
-                    )
-                )
-                if retriever:
-                    uploaded_forms.append(retriever)
-            except Exception as e:
-                logging.error(f"Error loading vector DB for {key}: {e}")
-    
-    # If we don't have any vector DBs, fall back to simple query answering
-    if not uploaded_forms:
-        prompt = f"""Based on the following user information and chat history, answer the question.
-        
-        User Information:
-        {json.dumps(user_info_dict, indent=2)}
-
-        {chat_history}
-        
-        Question: {question}
-        
-        Please provide a direct and helpful response."""
-
-        response = llm.invoke(input=prompt)
-        return response.content.strip()
+   
+    new_form_context = "\n".join(doc.page_content for doc in new_form)
     
     # If we have vector DBs, use the more sophisticated approach
     template = (
-        "You are Quill, an AI assistant tasked with helping the user. Use the following contexts:\n\n"
-        "Uploaded Forms Context:\n{uploaded_forms_context}\n\n"
-        "Additional User Information:\n{user_info}\n\n"
-        "Chat History:\n{chat_history}\n\n"
-        "Based on the above, answer the question:\n{question}\n"
+        "You are Quill, an expert form-filling assistant. Your task is to generate a FLAT JSON object where keys EXACTLY match the form field names and values are accurately derived from stored user information.\n\n"
+        "FORM TO COMPLETE:\n{new_form_context}\n\n"
+        "USER PROFILE DATA:\n{user_info}\n\n"
+        "CHAT HISTORY:\n{chat_history}\n\n "
+        "INSTRUCTIONS:\n"
+        "1. FIELD EXTRACTION:\n"
+        "   - Extract ALL field names from the form using their EXACT naming (preserve case, spacing, and special characters)\n"
+        "   - Include all fields in your JSON output, even if some values are missing\n"
+        "   - NO NESTED JSON STRUCTURES - output must be a one-level, flat JSON object\n"
+        "   - If form has fields that appear hierarchical (e.g., 'address.street'), maintain them as flat keys\n\n"
+        "2. VALUE DETERMINATION:\n"
+        "   - For each field, find the most relevant information from user profile data\n"
+        "   - If information is unavailable, set value to '' (don't guess or omit the field)\n\n"
+        "3. DATA FORMATTING:\n"
+        "   - Dates: Match exactly the format specified in the form (MM/DD/YYYY, YYYY-MM-DD, etc.)\n"
+        "   - Addresses: Format as single strings with appropriate separators as required by the form\n"
+        "   - Phone numbers: Apply correct formatting with appropriate separators\n"
+        "   - Financial values: Preserve exact decimal places and currency formatting\n"
+        "   - Boolean values: Use true/false unless form specifies other values\n\n"
+        "4. OUTPUT REQUIREMENTS:\n"
+        "   - Generate valid, properly formatted FLAT JSON with no nested objects or arrays\n"
+        "   - Ensure all field names in your output EXACTLY match those in the form\n"
+        "   - Do not include any explanatory text before or after the JSON object\n"
+        "   - Verify the JSON has no nested structures and is properly formatted\n\n"
+        "QUESTION: {question}\n\n"
+        "ANSWER (DO NOT USE ANY NESTED STRUCTURE IN JSON. USE ONLY FLAT, ONE-LEVEL JSON. ANSWER ONLY JSON, NOTHING ELSE):"
     )
     
-    # Gather contexts from all retrievers
-    uploaded_contexts = []
-    for retriever in uploaded_forms:
-        try:
-            docs = retriever.get_relevant_documents(question)
-            if docs:
-                context_str = "\n".join(doc.page_content for doc in docs)
-                uploaded_contexts.append(context_str)
-        except Exception as e:
-            logging.warning(f"Error retrieving documents: {e}")
-    
-    uploaded_forms_context = "\n".join(uploaded_contexts)
-    
     prompt_text = template.format(
-        uploaded_forms_context=uploaded_forms_context,
+        new_form_context=new_form_context,
         user_info=json.dumps(user_info_dict, indent=2),
         chat_history=chat_history,
         question=question
@@ -725,7 +711,9 @@ def main():
 
         # Initialize LLM and get response
         llm = ChatOllama(model=MODEL_NAME, temperature=0.3)
-        response = answer_query(llm, args.question, user_info, chat_history)
+
+        data = ingest_file(args.document)
+        response = answer_query(llm, args.question, user_info, chat_history, data)
         
         print(json.dumps({"response": response}))
     
