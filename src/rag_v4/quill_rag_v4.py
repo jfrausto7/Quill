@@ -581,45 +581,47 @@ def answer_query(llm, question, user_info="", chat_history="", new_form=None):
         logging.error(f"Error parsing user_info: {e}")
         return "Sorry, I couldn't process your request due to an error with user information."
     
-   
-    new_form_context = "\n".join(doc.page_content for doc in new_form)
+    if new_form:
+        new_form_context = "\n".join(doc.page_content for doc in new_form)
     
-    # If we have vector DBs, use the more sophisticated approach
-    template = (
-        "You are Quill, an expert form-filling assistant. Your task is to generate a FLAT JSON object where keys EXACTLY match the form field names and values are accurately derived from stored user information.\n\n"
-        "FORM TO COMPLETE:\n{new_form_context}\n\n"
-        "USER PROFILE DATA:\n{user_info}\n\n"
-        "CHAT HISTORY:\n{chat_history}\n\n "
-        "INSTRUCTIONS:\n"
-        "1. FIELD EXTRACTION:\n"
-        "   - Extract ALL field names from the form using their EXACT naming (preserve case, spacing, and special characters)\n"
-        "   - Include all fields in your JSON output, even if some values are missing\n"
-        "   - NO NESTED JSON STRUCTURES - output must be a one-level, flat JSON object\n"
-        "   - If form has fields that appear hierarchical (e.g., 'address.street'), maintain them as flat keys\n\n"
-        "2. VALUE DETERMINATION:\n"
-        "   - For each field, find the most relevant information from user profile data\n"
-        "   - If information is unavailable, set value to '' (don't guess or omit the field)\n\n"
-        "3. DATA FORMATTING:\n"
-        "   - Dates: Match exactly the format specified in the form (MM/DD/YYYY, YYYY-MM-DD, etc.)\n"
-        "   - Addresses: Format as single strings with appropriate separators as required by the form\n"
-        "   - Phone numbers: Apply correct formatting with appropriate separators\n"
-        "   - Financial values: Preserve exact decimal places and currency formatting\n"
-        "   - Boolean values: Use true/false unless form specifies other values\n\n"
-        "4. OUTPUT REQUIREMENTS:\n"
-        "   - Generate valid, properly formatted FLAT JSON with no nested objects or arrays\n"
-        "   - Ensure all field names in your output EXACTLY match those in the form\n"
-        "   - Do not include any explanatory text before or after the JSON object\n"
-        "   - Verify the JSON has no nested structures and is properly formatted\n\n"
-        "QUESTION: {question}\n\n"
-        "ANSWER (DO NOT USE ANY NESTED STRUCTURE IN JSON. USE ONLY FLAT, ONE-LEVEL JSON. ANSWER ONLY JSON, NOTHING ELSE):"
-    )
-    
-    prompt_text = template.format(
-        new_form_context=new_form_context,
-        user_info=json.dumps(user_info_dict, indent=2),
-        chat_history=chat_history,
-        question=question
-    )
+        # If we have vector DBs, use the more sophisticated approach
+        template = (
+            "You are Quill, an expert form-filling assistant. Your task is to generate a FLAT JSON object where keys EXACTLY match the form field names and values are accurately derived from stored user information.\n\n"
+            "FORM TO COMPLETE:\n{new_form_context}\n\n"
+            "USER PROFILE DATA:\n{user_info}\n\n"
+            "CHAT HISTORY:\n{chat_history}\n\n "
+            "INSTRUCTIONS:\n"
+            "1. FIELD EXTRACTION:\n"
+            "   - Extract ALL field names from the form using their EXACT naming (preserve case, spacing, and special characters)\n"
+            "   - Include all fields in your JSON output, even if some values are missing\n"
+            "   - NO NESTED JSON STRUCTURES - output must be a one-level, flat JSON object\n"
+            "   - If form has fields that appear hierarchical (e.g., 'address.street'), maintain them as flat keys\n\n"
+            "2. VALUE DETERMINATION:\n"
+            "   - For each field, find the most relevant information from user profile data\n"
+            "   - If information is unavailable, set value to '' (don't guess or omit the field)\n\n"
+            "3. DATA FORMATTING:\n"
+            "   - Dates: Match exactly the format specified in the form (MM/DD/YYYY, YYYY-MM-DD, etc.)\n"
+            "   - Addresses: Format as single strings with appropriate separators as required by the form\n"
+            "   - Phone numbers: Apply correct formatting with appropriate separators\n"
+            "   - Financial values: Preserve exact decimal places and currency formatting\n"
+            "   - Boolean values: Use true/false unless form specifies other values\n\n"
+            "4. OUTPUT REQUIREMENTS:\n"
+            "   - Generate valid, properly formatted FLAT JSON with no nested objects or arrays\n"
+            "   - Ensure all field names in your output EXACTLY match those in the form\n"
+            "   - Do not include any explanatory text before or after the JSON object\n"
+            "   - Verify the JSON has no nested structures and is properly formatted\n\n"
+            "QUESTION: {question}\n\n"
+            "ANSWER (DO NOT USE ANY NESTED STRUCTURE IN JSON. USE ONLY FLAT, ONE-LEVEL JSON. ANSWER ONLY JSON, NOTHING ELSE):"
+        )
+        
+        prompt_text = template.format(
+            new_form_context=new_form_context,
+            user_info=json.dumps(user_info_dict, indent=2),
+            chat_history=chat_history,
+            question=question
+        )
+    else:
+        prompt_text = "You are an expert conversational assistant. Your task is to answer questions based on stored user information.\n\n" + question
     
     response = llm.invoke(input=prompt_text)
     return response.content.strip()
@@ -712,8 +714,11 @@ def main():
         # Initialize LLM and get response
         llm = ChatOllama(model=MODEL_NAME, temperature=0.3)
 
-        data = ingest_file(args.document)
-        response = answer_query(llm, args.question, user_info, chat_history, data)
+        if args.document:
+            data = ingest_file(args.document)
+            response = answer_query(llm, args.question, user_info, chat_history, data)
+        else:
+            response = answer_query(llm, args.question, user_info, chat_history)
         
         print(json.dumps({"response": response}))
     
