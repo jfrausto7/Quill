@@ -186,10 +186,10 @@ export async function POST(request: Request) {
         '--mode', scriptMode
       ];
       
-      if (scriptMode === 'query') {
-        // For query mode, we need the document
-        args.push('--document', path.join('..', '..', 'uploads', documentName));
-      }
+      // if (scriptMode === 'query') {
+      //   // For query mode, we need the document
+      //   args.push('--document', path.join('..', '..', 'uploads', documentName));
+      // }
       
       // Both modes need the question/message
       args.push('--question', message);

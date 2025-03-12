@@ -621,7 +621,7 @@ def answer_query(llm, question, user_info="", chat_history="", new_form=None):
             question=question
         )
     else:
-        prompt_text = "You are an expert conversational assistant. Your task is to answer questions based on stored user information.\n\n" + question
+        prompt_text = "You are an expert conversational assistant. Your task is to ONLY answer questions based on stored user information otherwise request the user to upload other documents they have with relevant information (but don't name them explicitly). Do not respond with more than 1-2 sentences. \n\n" + question
     
     response = llm.invoke(input=prompt_text)
     return response.content.strip()
@@ -702,9 +702,6 @@ def main():
         
         # Load stored user info
         user_info = load_user_info()
-        if not user_info:
-            print(json.dumps({"error": "No user information found"}))
-            return
 
         # Get chat history if provided
         chat_history = ""
