@@ -71,3 +71,10 @@ Sprint #3:
 - Jacob: Experimented w/ local LLM memory optimization. Improved UI features based on feedback.
 - Ismael: Pushed two methods that extract form fields from web-based forms: 1. Puppeteer (onlineForms_Puppeteer) 2. Prompt engineering w/ o3-mini (onlineForms_llm).
 - Neil: Finalized user survey form, and collected and analyzed results.  Developed "coming soon" website with waiting list feature; project management; provided input on workflow and demo; mentored on slides and presentation.
+
+Final Sprint:
+- Daniel:
+- Dante:
+- Jacob: Integrated all frontend components with RAG and OCR processes. Debugged like crazy and recorded the final demo.
+- Ismael:
+- Neil:
