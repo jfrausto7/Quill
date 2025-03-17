@@ -73,7 +73,7 @@ Sprint #3:
 - Neil: Finalized user survey form, and collected and analyzed results.  Developed "coming soon" website with waiting list feature; project management; provided input on workflow and demo; mentored on slides and presentation.
 
 Final Sprint:
-- Daniel:
+- Daniel: Enhanced RAG with an update mode, allowing users to update their information via chat or doc uploads; debugged RAG and its integration with the frontend; prepared demo day slides.
 - Dante:
 - Jacob: Integrated all frontend components with RAG and OCR processes. Debugged like crazy and recorded the final demo.
 - Ismael:
