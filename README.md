@@ -76,5 +76,5 @@ Final Sprint:
 - Daniel: Enhanced RAG with an update mode, allowing users to update their information via chat or doc uploads; debugged RAG and its integration with the frontend; prepared demo day slides.
 - Dante:
 - Jacob: Integrated all frontend components with RAG and OCR processes. Debugged like crazy and recorded the final demo.
-- Ismael:
+- Ismael: Pushed OnlineTestFormFill1 (workflow of manually filling/submitting web-based forms through a convo w/ Quill) & OnlineTestFormFill2 (workflow of taking the info from a filled form pdf and then filling/submitting a web-based form using that info) under onlineForms_v2.
 - Neil:
