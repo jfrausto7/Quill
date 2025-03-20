@@ -74,7 +74,7 @@ Sprint #3:
 
 Final Sprint:
 - Daniel: Enhanced RAG with an update mode, allowing users to update their information via chat or doc uploads; debugged RAG and its integration with the frontend; prepared demo day slides.
-- Dante:
+- Dante: Tested and debugged write-pdf.py and added script for Mistral OCR integration; prepared demo day slides and created final poster.
 - Jacob: Integrated all frontend components with RAG and OCR processes. Debugged like crazy and recorded the final demo.
 - Ismael: Pushed OnlineTestFormFill1 (workflow of manually filling/submitting web-based forms through a convo w/ Quill) & OnlineTestFormFill2 (workflow of taking the info from a filled form pdf and then filling/submitting a web-based form using that info) under onlineForms_v2.
 - Neil:
